@@ -13,8 +13,8 @@
   (layers
     (0 F.Cu signal)
     (31 B.Cu signal)
-    (36 B.SilkS user hide)
-    (37 F.SilkS user hide)
+    (36 B.SilkS user)
+    (37 F.SilkS user)
     (38 B.Mask user hide)
     (39 F.Mask user hide)
     (40 Dwgs.User user hide)
@@ -23,8 +23,8 @@
     (43 Eco2.User user hide)
     (44 Edge.Cuts user hide)
     (45 Margin user hide)
-    (46 B.CrtYd user)
-    (47 F.CrtYd user)
+    (46 B.CrtYd user hide)
+    (47 F.CrtYd user hide)
     (48 B.Fab user hide)
     (49 F.Fab user hide)
   )
@@ -119,10 +119,6 @@
     (add_net "Net-(R3-Pad2)")
     (add_net "Net-(R7-Pad2)")
     (add_net "Net-(R8-Pad2)")
-    (add_net "Net-(U1-Pad2)")
-    (add_net "Net-(U1-Pad5)")
-    (add_net "Net-(U1-Pad6)")
-    (add_net "Net-(U1-Pad7)")
   )
 
   (net_class supply ""
@@ -634,10 +630,10 @@
       (net 13 "Net-(R8-Pad2)"))
     (pad 16 smd rect (at 7.6 4.9 180) (size 2.5 1) (layers B.Cu B.Paste B.Mask)
       (net 12 "Net-(R7-Pad2)"))
-    (model ${KISYS3DMOD}/RF_Module.3dshapes/ESP-07.wrl
-      (at (xyz 0 0 0))
+    (model ${KIPRJMOD}/../_library/3d/ESP07.STEP
+      (offset (xyz -0.4 -0.8 0))
       (scale (xyz 1 1 1))
-      (rotate (xyz 0 0 0))
+      (rotate (xyz -90 0 0))
     )
   )
 
@@ -976,7 +972,12 @@
       (net 2 GND))
     (pad 1 thru_hole rect (at 0 0 270) (size 1.7 1.7) (drill 1) (layers *.Cu *.Mask)
       (net 1 +3V3))
-    (model ${KISYS3DMOD}/Connector_PinSocket_2.54mm.3dshapes/PinSocket_1x04_P2.54mm_Vertical.wrl
+    (model ${KIPRJMOD}/../_library/3d/GY-BME280.STEP
+      (offset (xyz -1.5 -3.8 2.6))
+      (scale (xyz 1 1 1))
+      (rotate (xyz 0 0 90))
+    )
+    (model ${KISYS3DMOD}/Connector_PinHeader_2.54mm.3dshapes/PinHeader_1x04_P2.54mm_Vertical.step
       (at (xyz 0 0 0))
       (scale (xyz 1 1 1))
       (rotate (xyz 0 0 0))
