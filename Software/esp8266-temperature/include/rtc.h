@@ -2,13 +2,13 @@
 
 #include <ESP8266WiFi.h>
 
-typedef struct {
+typedef struct __attribute__ ((packed)) {
   uint8 bssid[6];
   uint8 chl;
-  IPAddress ip;
-  IPAddress gw;
-  IPAddress msk;
-  IPAddress dns;
+  ip_addr_t ip;
+  ip_addr_t gw;
+  ip_addr_t msk;
+  ip_addr_t dns;
   uint16_t localPort;
   uint32_t crc;
 } cfgbuf_t;

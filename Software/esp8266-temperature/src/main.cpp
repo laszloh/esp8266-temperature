@@ -5,6 +5,7 @@
 #include <PubSubClient.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BME280.h>
+#include "LittleFS.h"
 
 #include "rtc.h"
 
@@ -12,16 +13,19 @@
 constexpr const char *ssid = SSID;
 constexpr const char *pass = PASSWD;
 
-constexpr uint32_t timeout = 500;               //< wifi connect timeout
-constexpr uint32_t sleep_time = 30*1000*1000;   //< deep sleep time in us
+constexpr uint32_t timeout = 2000;               //< wifi connect timeout
+constexpr uint32_t sleep_time = 15*60*1000*1000;   //< deep sleep time in us
+//constexpr uint32_t sleep_time = 5*1000*1000;   //< deep sleep time in us
 
-constexpr const char *mqtt_server = "192.168.0.201";
+constexpr const char *mqtt_server = "192.168.88.12";
 constexpr const char *staticId = "ESP8266";
-constexpr const char *staticTopic = "/revai/sensors/";
+constexpr const char *staticTopic = "/revai/sensors";
 
-#define SERIAL_DEBUG 1
+constexpr const char *staticMessage = "{ \"temperatue\":%.2f, \"humidity\":%.2f, \"pressure\":%.2f, \"system\":{ \"rssi\":%d, \"voltage\":%d } }";
 
-#ifdef SERIAL_DEBUG
+#define DEBUG
+
+#ifdef DEBUG
     #define print(...)  Serial.print(__VA_ARGS__)
     #define println(...)  Serial.println(__VA_ARGS__)
 #else
@@ -33,6 +37,8 @@ Adafruit_BME280 bme;
 WiFiClient espClient;
 PubSubClient client(espClient);
 char clientId[64];
+
+uint64_t boot_time;
 
 ADC_MODE(ADC_VCC)
 
@@ -50,7 +56,7 @@ void preinit() {
   ESP8266WiFiClass::preinitWiFiOff();
 }
 
-bool mqtt_connect() {
+bool mqtt_connect(void) {
     uint32_t cur_ms = millis();
  
     while(!client.connected()) {
@@ -64,19 +70,29 @@ bool mqtt_connect() {
     return true;
 }
 
+void enter_sleep(void) {
+    println("Going to deep sleep");
+    print("Was awake for: ");print((uint32_t)(millis()-boot_time),10);println(" ms");
+    ESP.deepSleep(sleep_time, WAKE_NO_RFCAL);
+    delay(10);
+}
+
 void setup() {
     cfgbuf_t cfg;
     float temp, pressure, humidity;
 
     system_update_cpu_freq(80);
-#ifdef SERIAL_DEBUG
-    Serial.begin(115200);
+    boot_time = millis();
+#ifdef DEBUG
+    Serial.begin(74880);
     while(!Serial) { }
 #endif
     println("ESP8266 startup...");
 
+    pinMode(D0, WAKEUP_PULLUP);
+
     // boot up the BME280
-    bool status = bme.begin();
+    bool status = bme.begin(BME280_ADDRESS_ALTERNATE);
     if(!status) {
         println("Could not find a valid BME280 sensor, check wiring, address, sensor ID!");
         print("SensorID was: 0x"); println(bme.sensorID(),16);
@@ -84,7 +100,7 @@ void setup() {
         println("   ID of 0x56-0x58 represents a BMP 280,\n");
         println("        ID of 0x60 represents a BME 280.\n");
         println("        ID of 0x61 represents a BME 680.\n");
-#ifdef SERIAL_DEBUG
+#ifdef DEBUG
         while (1)
             delay(10);
 #else
@@ -105,63 +121,59 @@ void setup() {
     print("Current Temperature: ");println(temp);
 
     // boot up the wifi to send the data
+    print("RTC config: ");
+    uint8_t multi = 1;
     if(readcfg(&cfg)) {
+        println(" found");
         WiFi.forceSleepWake();
         WiFi.config(cfg.ip, cfg.gw, cfg.msk, cfg.dns);
         WiFi.begin(ssid, pass, cfg.chl, cfg.bssid);
     } else {
         // no data in rtc, normal startup
+        println(" NOT found");
         WiFi.forceSleepWake();
         WiFi.begin(ssid, pass);
+        multi = 3; 
     }
 
     uint32_t cur_ms = millis();
     while (WiFi.status() != WL_CONNECTED) {
-        if(millis() - cur_ms > timeout) {
+        if(millis() - cur_ms > timeout * multi) {
+            print("Giving up at: ");print((uint32_t)(millis()-boot_time),10);println(" ms");
             println("Could not connect to WiFi...");
             println("going to forced sleep...");
             return;
         }
         delay(1);
     }
+    print("Connect at: ");print((uint32_t)(millis()-boot_time),10);println(" ms");
+
+    writecfg();
 
     client.setServer(mqtt_server, 1883);
+    client.setSocketTimeout(1);
     snprintf(clientId, sizeof(clientId), "%s-%06X", staticId, system_get_chip_id());
 
     if(mqtt_connect()) {
         char topic[128];
         char payload[128];
-
-        // publish the temperature
-        snprintf(topic, sizeof(topic), "%s/%s/temperature", staticTopic, clientId);
-        dtostrf(temp, 2, 2, payload);
-        client.publish(topic, payload);
-
-        // publish the temperature
-        snprintf(topic, sizeof(topic), "%s/%s/humidity", staticTopic, clientId);
-        dtostrf(humidity, 2, 2, payload);
-        client.publish(topic, payload);
-
-        // publish the temperature
-        snprintf(topic, sizeof(topic), "%s/%s/pressure", staticTopic, clientId);
-        dtostrf(pressure, 2, 2, payload);
-        client.publish(topic, payload);
-
         uint16_t vcc = ESP.getVcc();
-        print("Current battery voltage: ");println(vcc);
-        // publish the battery voltage
-        snprintf(topic, sizeof(topic), "%s/%s/state/voltage", staticTopic, clientId);
-        snprintf(payload, "%d", vcc);
-        client.publish(topic, payload);
-    }
 
-    ESP.deepSleep(sleep_time, WAKE_NO_RFCAL);
-    delay(5000);
+        // publish the measurements
+        snprintf(topic, sizeof(topic), "%s/%s", staticTopic, clientId);
+        snprintf(payload, sizeof(payload), staticMessage, temp, humidity, pressure, WiFi.RSSI(), vcc);
+        print("msg: ");println(payload);
+        client.publish(topic, payload);
+
+        // subscribe to setup message
+        // ToDo: implement
+
+        delay(500);
+    }
+    enter_sleep();
 }
 
 void loop() {
     // if we got here, goto sleep
-    ESP.deepSleep(sleep_time, WAKE_NO_RFCAL);
-    delay(5000);
+    enter_sleep();
 }
-
