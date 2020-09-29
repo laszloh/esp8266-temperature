@@ -9,6 +9,10 @@
 
 #include "rtc.h"
 
+extern "C" {
+#include <user_interface.h>
+}
+
 #include "wifi.h" // #defines SSID and PASSWD
 constexpr const char *ssid = SSID;
 constexpr const char *pass = PASSWD;
@@ -45,6 +49,11 @@ ADC_MODE(ADC_VCC)
 // preinit() is called before system startup
 // from nonos-sdk's user entry point user_init()
 
+RF_PRE_INIT()
+{
+    system_phy_set_powerup_option(2);
+}
+
 void preinit() {
   // Global WiFi constructors are not called yet
   // (global class instances like WiFi, Serial... 
@@ -73,7 +82,7 @@ bool mqtt_connect(void) {
 void enter_sleep(void) {
     println("Going to deep sleep");
     print("Was awake for: ");print((uint32_t)(millis()-boot_time),10);println(" ms");
-    ESP.deepSleep(sleep_time, WAKE_NO_RFCAL);
+    ESP.deepSleepInstant(sleep_time, WAKE_NO_RFCAL);
     delay(10);
 }
 
