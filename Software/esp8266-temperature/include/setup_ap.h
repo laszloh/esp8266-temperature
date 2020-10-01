@@ -1,9 +1,9 @@
 /**
- * @file rtc.h
+ * @file setup_ap.h
  * @author Laszlo Hegedüs (laszlo.hegedues@gmail.com)
  * @brief 
  * @version 0.1
- * @date 2020-09-30
+ * @date 2020-10-01
  * 
  * \copyright Copyright (c) 2020 under the MIT License
  * 
@@ -25,35 +25,23 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-#ifndef _RTC_H_
-#define _RTC_H_H
+#ifndef _SETUP_AP_H_
+#define _SETUP_AP_H_
 
-#include <ESP8266WiFi.h>
+#include "settings.h"
+#include <WiFiManager.h>
 
-typedef struct __attribute__ ((packed)) {
-  uint8 bssid[6];
-  uint8 chl;
-  ip_addr_t ip;
-  ip_addr_t gw;
-  ip_addr_t msk;
-  ip_addr_t dns;
-  uint8_t reconfigure;
-  uint32_t crc;
-} cfgbuf_t;
+void setup_ap(settings_t &setting);
 
-/**
- * @brief 
- * 
- * @param config 
- * @return true 
- * @return false 
- */
-bool read_rtc_memory(cfgbuf_t *config);
+class LongParameter : public WiFiManagerParameter {
+public:
+    LongParameter(const char *id, const char *placeholder, long value, const uint8_t length = 10) : WiFiManagerParameter("") {
+        init(id, placeholder, String(value).c_str(), length, " type=\"number\"", WFM_LABEL_BEFORE);
+    }
 
-/**
- * @brief 
- * 
- */
-void write_rtc_memory(void);
+    long getValue() {
+        return String(WiFiManagerParameter::getValue()).toInt();
+    }
+};
 
 #endif
