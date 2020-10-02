@@ -34,19 +34,12 @@
 
 #include "settings.h"
 
-settings_t settings;
-
 bool loadConfig(settings_t &setting) {
-    bool ret = true;
-
     EEPROM.begin(sizeof(settings_t));
     EEPROM.get(0, setting);
     EEPROM.end();
 
-    if(setting.version == SETTINGS_REVISION && 
-        setting.crc == CRC32::calculate((uint8_t*)&setting.data, sizeof(setting.data))) {
-        Log.notice(F("Loading settings: OK" CR));
-    } else {
+    if(setting.version != SETTINGS_REVISION || setting.crc != CRC32::calculate((uint8_t*)&setting.data, sizeof(setting.data))) {
         Log.error(F("Loading settings: FAILED" CR));
         // set up the settings variable with default values
         memset(&setting, 0, sizeof(settings_t));
@@ -54,17 +47,10 @@ bool loadConfig(settings_t &setting) {
         setting.data.mqtt_port = 1883;
         strncpy(setting.data.mqtt_host, DEFAULT_MQTT_HOST, MQTT_HOST_LEN);
         strncpy(setting.data.mqtt_topic, DEFAULT_MQTT_TOPIC, MQTT_TOPIC_LEN);
+        return false;;
     }
-
-    uint32_t crc = settings.crc;
-    settings.crc = 0x00;
-
-    if(CRC32::calculate((uint8_t*)&settings, sizeof(settings_t)) == crc) {
-    } else {
-        // crc failed! load default settings
-        ret = false;
-    }
-    return ret;
+    Log.notice(F("Loading settings: OK" CR));
+    return true;
 }
 
 bool saveConfig(const settings_t &setting) {

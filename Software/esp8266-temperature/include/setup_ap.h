@@ -31,7 +31,7 @@
 #include "settings.h"
 #include <WiFiManager.h>
 
-void setup_ap(settings_t &setting);
+bool setup_ap(settings_t &setting);
 
 class LongParameter : public WiFiManagerParameter {
 public:

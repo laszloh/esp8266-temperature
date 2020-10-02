@@ -26,10 +26,7 @@
  * SOFTWARE.
  */
 #include <Arduino.h>
-
 #include <ESP8266WiFi.h>
-#include <WiFiClient.h>
-#include <PubSubClient.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BME280.h>
 #include <ArduinoLog.h>
@@ -37,32 +34,21 @@
 #include "rtc.h"
 #include "settings.h"
 #include "setup_ap.h"
+#include "mqtt_client.h"
 
 #define LOG_AS  "[MAIN] "
 
-extern "C" {
-#include <user_interface.h>
-}
-
-#include "wifi.h" // #defines SSID and PASSWD
-constexpr const char *ssid = SSID;
-constexpr const char *pass = PASSWD;
-
-constexpr uint32_t timeout = ESP_WIFI_TIMEOUT;     //< wifi connect timeout
-constexpr uint32_t sleep_time = 15*60*1000*1000;   //< deep sleep time in us
+static constexpr uint32_t timeout = ESP_WIFI_TIMEOUT;     //< wifi connect timeout
+static constexpr uint32_t sleep_time = 15*60*1000*1000;   //< deep sleep time in us
 //constexpr uint32_t sleep_time = 5*1000*1000;     //< deep sleep time in us
 
 constexpr const char *mqtt_server = "192.168.88.12";
-constexpr const char *staticTopic = "/revai/sensors";
-constexpr const char *staticMessage = "{ \"temperature\":%.2f, \"humidity\":%.2f, \"pressure\":%.2f, \"system\":{ \"rssi\":%d, \"voltage\":%d } }";
 
-Adafruit_BME280 bme;
+static Adafruit_BME280 bme;
+static MqttClient client;
+static RtcMemory rtc = RtcMemory::getInstance();
 
-WiFiClient espClient;
-PubSubClient client(espClient);
-char clientId[64];
-
-uint64_t boot_time;
+static uint32_t boot_time;
 
 ADC_MODE(ADC_VCC)
 
@@ -85,33 +71,20 @@ void preinit() {
   ESP8266WiFiClass::preinitWiFiOff();
 }
 
-bool mqtt_connect(const char*clientId) {
-    uint32_t cur_ms = millis();
- 
-    while(!client.connected()) {
-        client.connect(clientId);
-        if(millis() - cur_ms > timeout) {
-            Log.error(F("Failed to connect to mqtt broker..." CR));
-            return false;
-        }
-        delay(1);
-    }
-    return true;
-}
-
 void enter_sleep(void) {
-    uint16_t curTime;
+    uint32_t curTime;
 
-    Log.notice(F("Going to deep sleep" CR));
+    Log.notice(F(LOG_AS "Going to deep sleep" CR));
     curTime = millis()-boot_time;
-    Log.verbose(F("Was awake for %l ms" CR), curTime);
+    rtc.setLastWakeDuration(curTime);
+    rtc.WriteRtcMemory();
+    Log.verbose(F(LOG_AS "Was awake for %l ms" CR), curTime);
     Serial.flush();
     ESP.deepSleepInstant(sleep_time, WAKE_NO_RFCAL);
     delay(10);
 }
 
 void setup() {
-    cfgbuf_t cfg;
     float temp, pressure, humidity;
     uint16_t curTime;
     settings_t sett;
@@ -126,38 +99,40 @@ void setup() {
 
     Log.begin(LOG_LEVEL_VERBOSE, &Serial);
 
-    Log.notice(F("ESP8266 startup..." CR));
+    Log.notice(F(LOG_AS "ESP8266 startup..." CR));
 
     pinMode(D0, WAKEUP_PULLUP);
 
-    // ap testing
-    Log.notice(F("Testing Access Point" CR));
-    loadConfig(sett);
-    setup_ap(sett);
+    // load config from EEPROM
+    if(!loadConfig(sett)) {
+        // if we fail to load the settings, launch AP
+        if(!setup_ap(sett)) {
+            // setup AP timed out
+            Log.error(F(LOG_AS "Setup AP timed out. Going to forced sleep."));
+            enter_sleep();
+        }
+    }
 
     // boot up the wifi to send the data
-    Log.notice(F("RTC config: " CR));
-    if(read_rtc_memory(&cfg)) {
-        Log.notice(F("    found" CR));
+    if(rtc.isRtcValid()) {
+        Log.notice(F(LOG_AS "RTC config: found" CR));
         WiFi.forceSleepWake();
-        WiFi.config(cfg.ip, cfg.gw, cfg.msk, cfg.dns);
-        WiFi.begin(ssid, pass, cfg.chl, cfg.bssid);
+        WiFi.config(rtc.getIp(), rtc.getGateway(), rtc.getMask(), rtc.getDns());
+        uint8_t bssid[6];
+        rtc.getBssid(bssid);
+        WiFi.begin(sett.data.wifi_ssid, sett.data.wifi_pwd, rtc.getChannel(), bssid);
     } else {
         // no data in rtc, normal startup
-        Log.notice(F("    NOT found" CR));
+        Log.notice(F(LOG_AS "RTC config: NOT found" CR));
         WiFi.forceSleepWake();
-        WiFi.begin(ssid, pass);
+        WiFi.begin(sett.data.wifi_ssid, sett.data.wifi_pwd);
     }
 
     // boot up the BME280
     bool status = bme.begin(BME280_ADDRESS_ALTERNATE);
     if(!status) {
-        Log.error(F("Could not find a valid BME280 sensor, check wiring, address, sensor ID!" CR));
-        Log.error(F("SensorID was: %X" CR), bme.sensorID()); 
-        Log.error(F("    ID of 0xFF probably means a bad address, a BMP 180 or BMP 085" CR));
-        Log.error(F("    ID of 0x56-0x58 represents a BMP 280," CR));
-        Log.error(F("    ID of 0x60 represents a BME 280." CR));
-        Log.error(F("    ID of 0x61 represents a BME 680." CR));
+        Log.error(F(LOG_AS "Could not find a valid BME280 sensor, check wiring, address, sensor ID!" CR));
+        Log.error(F(LOG_AS "SensorID was: %X" CR), bme.sensorID());
         enter_sleep();
     }
     bme.setSampling(Adafruit_BME280::MODE_FORCED,
@@ -167,48 +142,42 @@ void setup() {
                     Adafruit_BME280::FILTER_OFF);
     bme.takeForcedMeasurement();
     pressure = bme.readPressure();
-    Log.verbose(F("Current Pressure: %l" CR), (uint32_t)(pressure*100));
+    Log.verbose(F(LOG_AS "Current Pressure: %l" CR), pressure);
     humidity = bme.readHumidity();
-    Log.verbose(F("Current Humidity: %l" CR), (uint16_t)(humidity*100));
+    Log.verbose(F(LOG_AS "Current Humidity: %l" CR), (uint16_t)(humidity*100));
     temp = bme.readTemperature();
-    Log.verbose(F("Current Temperature: %l" CR), (uint16_t)(temp*100));
+    Log.verbose(F(LOG_AS "Current Temperature: %l" CR), (uint16_t)(temp*100));
 
     uint32_t cur_ms = millis();
     while (WiFi.status() != WL_CONNECTED) {
         if(millis() - cur_ms > timeout) {
-            Log.error(F("Could not connect to WiFi..." CR));
+            Log.error(F(LOG_AS "Could not connect to WiFi..." CR));
             curTime = millis()-boot_time;
-            Log.error(F("Giving up at %l ms" CR), curTime);
-            Log.error(F("going to forced sleep... CR"));
+            Log.error(F(LOG_AS "Giving up at %l ms" CR), curTime);
+            Log.error(F(LOG_AS "going to forced sleep... CR"));
             enter_sleep();
         }
         delay(10);
     }
     curTime = millis()-boot_time;
-    Log.verbose(F("Connect at %l ms" CR), curTime);
+    Log.verbose(F(LOG_AS "Connect at %l ms" CR), curTime);
 
-    write_rtc_memory();
+    station_config wifi_conf;
+    wifi_station_get_config(&wifi_conf);
+    rtc.setBssid(wifi_conf.bssid);
+    rtc.setChannel(wifi_get_channel());
+    rtc.setIp(WiFi.localIP());
+    rtc.setGateway(WiFi.gatewayIP());
+    rtc.setMask(WiFi.subnetMask());
+    rtc.setDns(WiFi.dnsIP());
+    rtc.WriteRtcMemory();
 
-    espClient.setNoDelay(true);
-    client.setServer(mqtt_server, 1883);
-    client.setSocketTimeout(1);
-    snprintf(clientId, sizeof(clientId)-1, "ESP%04x", ESP.getChipId());
-
-    if(mqtt_connect(clientId)) {
-        char topic[128];
-        char payload[128];
+    // Start the MQTT party
+    client.begin(sett);
+    if(client.connect()) {
         uint16_t vcc = ESP.getVcc();
-
-        // subscribe to setup message
-        // ToDo: implement
-
-        // publish the measurements
-        snprintf(topic, sizeof(topic), "%s/%s", staticTopic, clientId);
-        snprintf(payload, sizeof(payload), staticMessage, temp, humidity, pressure, WiFi.RSSI(), vcc);
-        Log.verbose(F("msg: %s" CR), payload);
-        client.publish(topic, payload);
-
-//        delay(500);
+        client.sendMeasurment(temp, humidity, pressure);
+        client.sendStatus(WiFi.RSSI(), vcc);
     }
     enter_sleep();
 }

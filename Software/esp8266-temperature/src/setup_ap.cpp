@@ -35,16 +35,18 @@
 
 #define LOG_AS  "[AP] "
 
-WiFiManager wm;
+static WiFiManager wm;
 
 void bindServerCallback() {
 
 }
 
-void setup_ap(settings_t &setting) {
+bool setup_ap(settings_t &setting) {
     bool result;
 
+#ifndef DISABLE_LOGGING
     wm.debugPlatformInfo();
+#endif
     wm.setWebServerCallback(bindServerCallback);
 
     Log.notice(F(LOG_AS "Entering captive portal" CR));
@@ -96,4 +98,5 @@ void setup_ap(settings_t &setting) {
         Serial.flush();
         ESP.reset();
     }
+    return result;
 }

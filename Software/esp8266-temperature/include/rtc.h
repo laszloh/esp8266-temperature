@@ -28,32 +28,126 @@
 #ifndef _RTC_H_
 #define _RTC_H_H
 
-#include <ESP8266WiFi.h>
+class RtcMemory{
+public:
+    static RtcMemory &getInstance() {
+        static RtcMemory instance;
+        return instance;
+    }
 
-typedef struct __attribute__ ((packed)) {
-  uint8 bssid[6];
-  uint8 chl;
-  ip_addr_t ip;
-  ip_addr_t gw;
-  ip_addr_t msk;
-  ip_addr_t dns;
-  uint8_t reconfigure;
-  uint32_t crc;
-} cfgbuf_t;
+    void WriteRtcMemory();
 
-/**
- * @brief 
- * 
- * @param config 
- * @return true 
- * @return false 
- */
-bool read_rtc_memory(cfgbuf_t *config);
+    bool isRtcValid() const {
+        return _valid;
+    }
 
-/**
- * @brief 
- * 
- */
-void write_rtc_memory(void);
+    void getBssid(uint8_t bssid[6]) const {
+        memcpy(bssid, _rtc.data.bssid, 6);
+    }
+    void setBssid(const uint8_t bssid[6]) {
+        memcpy(_rtc.data.bssid, bssid, 6);
+    }
+
+    uint8_t getChannel() const {
+        return _rtc.data.chl;
+    }
+    void setChannel(const uint8_t chl) {
+        _rtc.data.chl = chl;
+    }
+
+    IPAddress getIp() const{
+        return IPAddress(_rtc.data.ip);
+    }
+    void setIp(const IPAddress ip) {
+        _rtc.data.ip = ip;
+    }
+
+    IPAddress getMask() const{
+        return IPAddress(_rtc.data.msk);
+    }
+    void setMask(const IPAddress msk) {
+        _rtc.data.msk = msk;
+    }
+
+    IPAddress getGateway() const{
+        return IPAddress(_rtc.data.gw);
+    }
+    void setGateway(const IPAddress gw) {
+        _rtc.data.gw = gw;
+    }
+
+    IPAddress getDns() const{
+        return IPAddress(_rtc.data.dns);
+    }
+    void setDns(const IPAddress dns) {
+        _rtc.data.dns = dns;
+    }
+
+    IPAddress getMqttServerIp() const{
+        return IPAddress(_rtc.data.mqtt_ip);
+    }
+    void setMqttServerIp(const IPAddress mqtt_ip) {
+        _rtc.data.mqtt_ip = mqtt_ip;
+    }
+
+    uint16_t getMqttLocalPort() const {
+        return _rtc.data.mqtt_local_port;
+    }
+    void setMqttLocalPort(const uint16_t mqtt_local_port) {
+        _rtc.data.mqtt_local_port = mqtt_local_port;
+    }
+
+    bool getReconfigure() const {
+        return (_rtc.data.flags.reconfigure == 1);
+    }
+    void setReconfigure(const bool state) {
+        _rtc.data.flags.reconfigure = (state) ? 1 : 0;
+    }
+
+    bool getBootloader() const {
+        return (_rtc.data.flags.bootloader == 1);
+    }
+    void setBootloader(const bool state) {
+        _rtc.data.flags.bootloader = (state) ? 1 : 0;
+    }
+
+    uint32_t getLastWakeDuration() const {
+        return _rtc.data.last_wake_time;
+    }
+    void setLastWakeDuration(const uint32_t duration) {
+        _rtc.data.last_wake_time = duration;
+    }
+
+private:
+    RtcMemory(){
+        ReadRtcMemory();
+    };
+
+    typedef struct __attribute__ ((packed)) {
+        uint8_t version;
+        uint32_t crc;
+        struct data_t {
+            uint8_t bssid[6];
+            uint8_t chl;
+            ip_addr_t ip;
+            ip_addr_t msk;
+            ip_addr_t gw;
+            ip_addr_t dns;
+            ip_addr_t mqtt_ip;
+            uint16_t mqtt_local_port;
+            struct flags_t {
+                uint8_t reconfigure:1;
+                uint8_t bootloader:1;
+                uint8_t reserved:6;
+            } flags;
+            uint32_t last_wake_time;
+        } data;
+    } rtcbuf_t;
+
+    void ReadRtcMemory();
+
+    bool _valid;
+    rtcbuf_t _rtc;
+};
 
 #endif
