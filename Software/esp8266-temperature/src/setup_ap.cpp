@@ -66,8 +66,7 @@ bool setup_ap(settings_t &setting) {
     wm.setConfigPortalTimeout(SETUP_TIME_SEC);
     wm.setConnectTimeout(ESP_WIFI_TIMEOUT);
 
-//    result = wm.startConfigPortal();
-    result = true;
+    result = wm.startConfigPortal();
 
     if(result) {
         // we are connected
@@ -80,8 +79,8 @@ bool setup_ap(settings_t &setting) {
         memcpy(setting.data.mqtt_topic, param_mqtt_topic.getValue(), MQTT_TOPIC_LEN);
         setting.data.mqtt_port = param_mqtt_port.getValue();
 
-//        memcpy(setting.data.wifi_ssid, wm.getWiFiSSID().c_str(), WIFI_SSID_LEN);
-//        memcpy(setting.data.wifi_pwd, wm.getWiFiPass().c_str(), WIFI_PWD_LEN);
+        memcpy(setting.data.wifi_ssid, wm.getWiFiSSID().c_str(), WIFI_SSID_LEN);
+        memcpy(setting.data.wifi_pwd, wm.getWiFiPass().c_str(), WIFI_PWD_LEN);
 
         Log.verbose(F(LOG_AS "New Settings:" CR));
         Log.verbose(F(LOG_AS "    MQTT Host:  %s" CR), setting.data.mqtt_host);

@@ -36,12 +36,16 @@ public:
     void begin(const settings_t &sett);
     bool connect(const uint32_t timeout=MQTT_TIMEOUT);
 
-    void sendMeasurment(float temperature, float humidity, float pressure);
-    void sendStatus(int32_t rssi, uint16_t mv);
+    void sendMeasurement(float temperature, float humidity, float pressure);
+    void sendStatus(uint16_t voltage);
+    void loop();
 
 private:
     settings_t setting;
     char clientId[32];
+
+    int8_t getRssiQuality(const int32_t rssi) const;
+    static void callback(char* topic, uint8_t* payload, uint16_t length);
 };
 
 #endif

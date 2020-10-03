@@ -32,7 +32,6 @@
 #define ESP_WIFI_TIMEOUT 15000
 #define MQTT_TIMEOUT 2000
 
-#define SETTINGS_REVISION 1
 #define DEFAULT_MQTT_HOST "192.168.88.12"
 #define DEFAULT_MQTT_TOPIC "/revai/sensors"
 

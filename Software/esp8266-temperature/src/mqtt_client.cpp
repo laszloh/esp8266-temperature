@@ -25,10 +25,11 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-
+#include <ESP8266WiFi.h>
 #include <WiFiClient.h>
 #include <PubSubClient.h>
 #include <ArduinoLog.h>
+#include <ArduinoJson.h>
 
 #include "mqtt_client.h"
 #include "rtc.h"
@@ -39,12 +40,10 @@ static WiFiClient wifiClient;
 static PubSubClient mqtt(wifiClient);
 static RtcMemory rtc = RtcMemory::getInstance();
 
-constexpr const char *staticTopic = "/revai/sensors";
-constexpr const char *staticMeasurment = "{ \"temperature\":%.2f, \"humidity\":%.2f, \"pressure\":%.2f, \"system\":{ \"rssi\":%d, \"voltage\":%d } }";
-constexpr const char *staticStatus = "{ \"rssi\":%d, \"voltage\":%d }";
+constexpr const char *staticSetupTopic = "/revai/sensors/setup";
 
 MqttClient::MqttClient(){
-    sniprintf(clientId, sizeof(clientId)-1, "ESP%04X", ESP.getChipId());
+    snprintf(clientId, sizeof(clientId)-1, "ESP%04X", ESP.getChipId());
 }
 
 void MqttClient::begin(const settings_t &sett) {
@@ -62,34 +61,89 @@ void MqttClient::begin(const settings_t &sett) {
     mqtt.setSocketTimeout(1);
 }
 
+void MqttClient::callback(char* topic, uint8_t* payload, uint16_t length) {
+    StaticJsonDocument<200> jsonDoc;
+    deserializeJson(jsonDoc, payload, length);
+
+    bool forceSetup = jsonDoc["setup-force"];
+    if(forceSetup) {
+        Log.notice(F(LOG_AS "Entering setup mode" CR));
+        rtc.setReconfigure(true);
+        rtc.WriteRtcMemory();
+        Serial.flush();
+        ESP.reset();
+    }
+}
+
 bool MqttClient::connect(const uint32_t timeout) {
     uint32_t start_ms = millis();
 
     while(!mqtt.connected()) {
-        mqtt.connect(clientId, setting.data.mqtt_login, setting.data.mqtt_password);
+        mqtt.connect(clientId, setting.data.mqtt_login, setting.data.mqtt_password, 0, 0, 0, 0, 0);
         if((millis() - start_ms) > timeout) {
             Log.error(F(LOG_AS "Connection timed out at %l ms" CR), millis());
             return false;
         }
     }
+    mqtt.setCallback(callback);
+    mqtt.subscribe(staticSetupTopic);
+
     return true;
 }
 
-void MqttClient::sendMeasurment(float temperature, float humidity, float pressure) {
-    
+void MqttClient::loop() {
+    mqtt.loop();
 }
 
-void MqttClient::sendStatus(int32_t rssi, uint16_t mv) {
-    
+void MqttClient::sendMeasurement(float temperature, float humidity, float pressure) {
+    char topic[64];
+    char message[512];
+    DynamicJsonDocument jsonDoc(1024);
+
+    jsonDoc["temperature"] = temperature;
+    jsonDoc["humidity"] = humidity;
+    jsonDoc["pressure"] = pressure;
+
+    size_t n = serializeJson(jsonDoc, message);
+    snprintf(topic, sizeof(topic), setting.data.mqtt_topic, clientId, "measurement");
+    Log.verbose(F(LOG_AS "Topic:   %s" CR), topic);
+    Log.verbose(F(LOG_AS "Message: %s" CR), message);
+    mqtt.publish(topic, message, n);
 }
 
-#if 0
-        // subscribe to setup message
-        client.subscribe()
+void MqttClient::sendStatus(uint16_t voltage) {
+    char topic[64];
+    char message[512];
+    DynamicJsonDocument doc(1024);
+    int32_t rssi = WiFi.RSSI();
 
-        // publish the measurements
-        snprintf(topic, sizeof(topic), "%s/%s", staticTopic, clientId);
-        snprintf(payload, sizeof(payload), staticMessage, temp, humidity, pressure, WiFi.RSSI(), vcc);
-        Log.verbose(F("msg: %s" CR), payload);
-        client.publish(topic, payload);
-#endif
+    doc["wakeTime"] = rtc.getLastWakeDuration();;
+    doc["Voltage"] = voltage;
+
+    JsonObject Memory = doc.createNestedObject(F("Memory"));
+    Memory["StackFree"] = ESP.getFreeContStack();
+    Memory["HeapFree"] = ESP.getFreeHeap();
+
+    JsonObject wifi = doc.createNestedObject(F("WiFi"));
+    wifi["SSId"] = WiFi.SSID();
+    wifi["BSSId"] = WiFi.BSSIDstr();
+    wifi["Channel"] = WiFi.channel();
+    wifi["RSSI"] = getRssiQuality(rssi);
+    wifi["Signal"] = rssi;
+
+    size_t n = serializeJson(doc, message);
+    snprintf(topic, sizeof(topic), setting.data.mqtt_topic, clientId, "status");
+    Log.verbose(F(LOG_AS "Topic:   %s" CR), topic);
+    Log.verbose(F(LOG_AS "Message: %s" CR), message);
+    mqtt.publish(topic, message, n);
+}
+
+int8_t MqttClient::getRssiQuality(const int32_t rssi) const{
+    int8_t quality = 0;
+
+    if(rssi >= -50)
+        quality = 100;
+    else if(rssi >= -100)
+        quality = 2 * (rssi + 100);
+    return quality;
+}

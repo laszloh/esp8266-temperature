@@ -35,119 +35,58 @@ public:
         return instance;
     }
 
+    void begin() {
+        ReadRtcMemory();
+    }
+
     void WriteRtcMemory();
 
     bool isRtcValid() const {
         return _valid;
     }
 
-    void getBssid(uint8_t bssid[6]) const {
-        memcpy(bssid, _rtc.data.bssid, 6);
-    }
-    void setBssid(const uint8_t bssid[6]) {
-        memcpy(_rtc.data.bssid, bssid, 6);
-    }
+    void getBssid(uint8_t bssid[6]) const;
+    void setBssid(const uint8_t bssid[6]);
 
-    uint8_t getChannel() const {
-        return _rtc.data.chl;
-    }
-    void setChannel(const uint8_t chl) {
-        _rtc.data.chl = chl;
-    }
+    uint8_t getChannel() const;
+    void setChannel(const uint8_t chl);
 
-    IPAddress getIp() const{
-        return IPAddress(_rtc.data.ip);
-    }
-    void setIp(const IPAddress ip) {
-        _rtc.data.ip = ip;
-    }
+    IPAddress getIp() const;
+    void setIp(const IPAddress ip);
 
-    IPAddress getMask() const{
-        return IPAddress(_rtc.data.msk);
-    }
-    void setMask(const IPAddress msk) {
-        _rtc.data.msk = msk;
-    }
+    IPAddress getMask() const;
+    void setMask(const IPAddress msk);
 
-    IPAddress getGateway() const{
-        return IPAddress(_rtc.data.gw);
-    }
-    void setGateway(const IPAddress gw) {
-        _rtc.data.gw = gw;
-    }
+    IPAddress getGateway() const;
+    void setGateway(const IPAddress gw);
 
-    IPAddress getDns() const{
-        return IPAddress(_rtc.data.dns);
-    }
-    void setDns(const IPAddress dns) {
-        _rtc.data.dns = dns;
-    }
+    IPAddress getDns() const;
+    void setDns(const IPAddress dns);
 
-    IPAddress getMqttServerIp() const{
-        return IPAddress(_rtc.data.mqtt_ip);
-    }
-    void setMqttServerIp(const IPAddress mqtt_ip) {
-        _rtc.data.mqtt_ip = mqtt_ip;
-    }
+    IPAddress getMqttServerIp() const;
+    void setMqttServerIp(const IPAddress mqtt_ip);
 
-    uint16_t getMqttLocalPort() const {
-        return _rtc.data.mqtt_local_port;
-    }
-    void setMqttLocalPort(const uint16_t mqtt_local_port) {
-        _rtc.data.mqtt_local_port = mqtt_local_port;
-    }
+    uint16_t getMqttLocalPort() const;
+    void setMqttLocalPort(const uint16_t mqtt_local_port);
 
-    bool getReconfigure() const {
-        return (_rtc.data.flags.reconfigure == 1);
-    }
-    void setReconfigure(const bool state) {
-        _rtc.data.flags.reconfigure = (state) ? 1 : 0;
-    }
+    bool getReconfigure() const;
+    void setReconfigure(const bool state);
 
-    bool getBootloader() const {
-        return (_rtc.data.flags.bootloader == 1);
-    }
-    void setBootloader(const bool state) {
-        _rtc.data.flags.bootloader = (state) ? 1 : 0;
-    }
+    bool getBootloader() const;
+    void setBootloader(const bool state);
 
-    uint32_t getLastWakeDuration() const {
-        return _rtc.data.last_wake_time;
-    }
-    void setLastWakeDuration(const uint32_t duration) {
-        _rtc.data.last_wake_time = duration;
-    }
+    uint32_t getLastWakeDuration() const;
+    void setLastWakeDuration(const uint32_t duration);
 
 private:
-    RtcMemory(){
-        ReadRtcMemory();
-    };
+    RtcMemory() { };
 
-    typedef struct __attribute__ ((packed)) {
-        uint8_t version;
-        uint32_t crc;
-        struct data_t {
-            uint8_t bssid[6];
-            uint8_t chl;
-            ip_addr_t ip;
-            ip_addr_t msk;
-            ip_addr_t gw;
-            ip_addr_t dns;
-            ip_addr_t mqtt_ip;
-            uint16_t mqtt_local_port;
-            struct flags_t {
-                uint8_t reconfigure:1;
-                uint8_t bootloader:1;
-                uint8_t reserved:6;
-            } flags;
-            uint32_t last_wake_time;
-        } data;
-    } rtcbuf_t;
+
 
     void ReadRtcMemory();
+    void printRtc();
 
     bool _valid;
-    rtcbuf_t _rtc;
 };
 
 #endif

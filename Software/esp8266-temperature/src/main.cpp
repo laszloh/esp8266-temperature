@@ -97,15 +97,17 @@ void setup() {
     Serial.begin(74880);
     while(!Serial);
 
-    Log.begin(LOG_LEVEL_VERBOSE, &Serial);
-
+    Log.begin(LOG_LEVEL_NOTICE, &Serial);
     Log.notice(F(LOG_AS "ESP8266 startup..." CR));
 
     pinMode(D0, WAKEUP_PULLUP);
+    rtc.begin();
 
     // load config from EEPROM
-    if(!loadConfig(sett)) {
+    if(!loadConfig(sett) || rtc.getReconfigure()) {
         // if we fail to load the settings, launch AP
+        rtc.setReconfigure(false);
+        rtc.WriteRtcMemory();
         if(!setup_ap(sett)) {
             // setup AP timed out
             Log.error(F(LOG_AS "Setup AP timed out. Going to forced sleep."));
@@ -142,7 +144,7 @@ void setup() {
                     Adafruit_BME280::FILTER_OFF);
     bme.takeForcedMeasurement();
     pressure = bme.readPressure();
-    Log.verbose(F(LOG_AS "Current Pressure: %l" CR), pressure);
+    Log.verbose(F(LOG_AS "Current Pressure: %l" CR), (uint16_t)pressure);
     humidity = bme.readHumidity();
     Log.verbose(F(LOG_AS "Current Humidity: %l" CR), (uint16_t)(humidity*100));
     temp = bme.readTemperature();
@@ -154,7 +156,7 @@ void setup() {
             Log.error(F(LOG_AS "Could not connect to WiFi..." CR));
             curTime = millis()-boot_time;
             Log.error(F(LOG_AS "Giving up at %l ms" CR), curTime);
-            Log.error(F(LOG_AS "going to forced sleep... CR"));
+            Log.error(F(LOG_AS "going to forced sleep... " CR));
             enter_sleep();
         }
         delay(10);
@@ -176,8 +178,13 @@ void setup() {
     client.begin(sett);
     if(client.connect()) {
         uint16_t vcc = ESP.getVcc();
-        client.sendMeasurment(temp, humidity, pressure);
-        client.sendStatus(WiFi.RSSI(), vcc);
+        client.sendMeasurement(temp, humidity, pressure);
+        client.sendStatus(vcc);
+
+        for(uint8_t i=0;i<5;i++) {
+            client.loop();
+            delay(100);
+        }
     }
     enter_sleep();
 }
