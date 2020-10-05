@@ -44,7 +44,11 @@
 #define MQTT_TOPIC_LEN 64
 
 typedef struct __packed {
-    uint8_t version;
+    struct flags_t {
+        uint8_t version : 4;
+        uint8_t reserved : 3;
+        uint8_t active : 1;
+    } __packed flags;
     uint32_t crc;
 
     struct data_t {
@@ -56,7 +60,7 @@ typedef struct __packed {
         char mqtt_login[MQTT_LOGIN_LEN];
         char mqtt_password[MQTT_PASSWORD_LEN];
         char mqtt_topic[MQTT_TOPIC_LEN];
-    } data;
+    } __packed data;
 } settings_t;
 
 bool loadConfig(settings_t &setting);

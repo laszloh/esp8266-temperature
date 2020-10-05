@@ -84,7 +84,7 @@ void RtcMemory::ReadRtcMemory() {
     _valid = true;
     if(_rtc.version != RTC_MEMORY_VERSION || _rtc.crc != CRC32::calculate((uint8_t*)&_rtc.data, sizeof(_rtc.data))) {
         Log.error(F(LOG_AS "RTC memory corrupted" CR));
-        memset(&_rtc, 0xFF, sizeof(rtcbuf_t));
+        memset(&_rtc, 0x00, sizeof(rtcbuf_t));
         _valid = false;
     }
     printRtc();
