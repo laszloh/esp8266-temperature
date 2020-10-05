@@ -27,7 +27,7 @@
  */
 #include <Arduino.h>
 #include <ESP8266WiFi.h>
-#include <CRC32.h>
+#include <FastCRC.h>
 #include <ArduinoLog.h>
 
 #include "rtc.h"
@@ -62,6 +62,7 @@ struct rtcbuf_t {
 } __attribute__ ((packed));
 
 static rtcbuf_t _rtc;
+static FastCRC32 crc32;
 
 void RtcMemory::printRtc() {
     Log.verbose(F(LOG_AS "RTC memory content:" CR));
@@ -82,7 +83,7 @@ void RtcMemory::ReadRtcMemory() {
     system_rtc_mem_read(64+EBOOT_RTC_OFFSET, &_rtc, sizeof(_rtc));
     
     _valid = true;
-    if(_rtc.version != RTC_MEMORY_VERSION || _rtc.crc != CRC32::calculate((uint8_t*)&_rtc.data, sizeof(_rtc.data))) {
+    if(_rtc.version != RTC_MEMORY_VERSION || _rtc.crc != crc32.crc32((uint8_t*)&_rtc.data, sizeof(_rtc.data))) {
         Log.error(F(LOG_AS "RTC memory corrupted" CR));
         memset(&_rtc, 0x00, sizeof(rtcbuf_t));
         _valid = false;
@@ -92,7 +93,7 @@ void RtcMemory::ReadRtcMemory() {
 
 void RtcMemory::WriteRtcMemory() {
     _rtc.version = RTC_MEMORY_VERSION;
-    _rtc.crc = CRC32::calculate((uint8_t*)&_rtc.data, sizeof(_rtc.data));
+    _rtc.crc = crc32.crc32((uint8_t*)&_rtc.data, sizeof(_rtc.data));
 
     system_rtc_mem_write(64+EBOOT_RTC_OFFSET, &_rtc, sizeof(_rtc));
 }

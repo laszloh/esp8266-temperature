@@ -44,11 +44,7 @@
 #define MQTT_TOPIC_LEN 64
 
 typedef struct __packed {
-    struct flags_t {
-        uint8_t version : 4;
-        uint8_t reserved : 3;
-        uint8_t active : 1;
-    } __packed flags;
+    uint8_t version;
     uint32_t crc;
 
     struct data_t {

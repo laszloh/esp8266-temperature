@@ -104,10 +104,8 @@ void setup() {
     rtc.begin();
 
     // load config from EEPROM
-    if(!loadConfig(sett) || rtc.getReconfigure()) {
+    if(!loadConfig(sett)) {
         // if we fail to load the settings, launch AP
-        rtc.setReconfigure(false);
-        rtc.WriteRtcMemory();
         if(!setup_ap(sett)) {
             // setup AP timed out
             Log.error(F(LOG_AS "Setup AP timed out. Going to forced sleep."));
