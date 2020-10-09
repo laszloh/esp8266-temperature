@@ -29,6 +29,7 @@
 #include <ESP8266WiFi.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BME280.h>
+#include <Adafruit_BMP085.h>
 #include <ArduinoLog.h>
 
 #include "rtc.h"
@@ -44,7 +45,8 @@ static constexpr uint32_t sleep_time = 15*60*1000*1000;   //< deep sleep time in
 
 constexpr const char *mqtt_server = "192.168.88.12";
 
-static Adafruit_BME280 bme;
+static Adafruit_BME280 bme280;
+static Adafruit_BMP085 bmp180;
 static MqttClient client;
 static RtcMemory rtc = RtcMemory::getInstance();
 
@@ -85,7 +87,7 @@ void enter_sleep(void) {
 }
 
 void setup() {
-    float temp, pressure, humidity;
+    float temp = NAN, pressure = NAN, humidity = NAN;
     uint16_t curTime;
     settings_t sett;
 
@@ -129,24 +131,29 @@ void setup() {
     }
 
     // boot up the BME280
-    bool status = bme.begin(BME280_ADDRESS_ALTERNATE);
-    if(!status) {
-        Log.error(F(LOG_AS "Could not find a valid BME280 sensor, check wiring, address, sensor ID!" CR));
-        Log.error(F(LOG_AS "SensorID was: %X" CR), bme.sensorID());
+    if(bme280.begin(BME280_ADDRESS_ALTERNATE)) {
+        // we have a BME280 module on board
+        bme280.setSampling(Adafruit_BME280::MODE_FORCED,
+                        Adafruit_BME280::SAMPLING_X1, // temperature
+                        Adafruit_BME280::SAMPLING_X1, // pressure
+                        Adafruit_BME280::SAMPLING_X1, // humidity
+                        Adafruit_BME280::FILTER_OFF);
+        bme280.takeForcedMeasurement();
+        pressure = bme280.readPressure();
+        Log.verbose(F(LOG_AS "Current Pressure: %l" CR), (uint16_t)pressure);
+        humidity = bme280.readHumidity();
+        Log.verbose(F(LOG_AS "Current Humidity: %l" CR), (uint16_t)(humidity*100));
+        temp = bme280.readTemperature();
+        Log.verbose(F(LOG_AS "Current Temperature: %l" CR), (uint16_t)(temp*100));
+    } else if(bmp180.begin(BMP085_ULTRALOWPOWER)) {
+        // we have a BMP180 on board
+        pressure = bmp180.readPressure();
+        temp = bmp180.readTemperature();
+    } else {
+        // neigther BME nor BMP were found
+        Log.error(F(LOG_AS "Could not find a valid BME280 or BMP180 sensor, check wiring, address, sensor ID!" CR));
         enter_sleep();
     }
-    bme.setSampling(Adafruit_BME280::MODE_FORCED,
-                    Adafruit_BME280::SAMPLING_X1, // temperature
-                    Adafruit_BME280::SAMPLING_X1, // pressure
-                    Adafruit_BME280::SAMPLING_X1, // humidity
-                    Adafruit_BME280::FILTER_OFF);
-    bme.takeForcedMeasurement();
-    pressure = bme.readPressure();
-    Log.verbose(F(LOG_AS "Current Pressure: %l" CR), (uint16_t)pressure);
-    humidity = bme.readHumidity();
-    Log.verbose(F(LOG_AS "Current Humidity: %l" CR), (uint16_t)(humidity*100));
-    temp = bme.readTemperature();
-    Log.verbose(F(LOG_AS "Current Temperature: %l" CR), (uint16_t)(temp*100));
 
     uint32_t cur_ms = millis();
     while (WiFi.status() != WL_CONNECTED) {

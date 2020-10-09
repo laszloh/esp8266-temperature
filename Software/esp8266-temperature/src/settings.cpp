@@ -29,13 +29,15 @@
 #include <Arduino.h>
 
 #include <ArduinoLog.h>
-#include <CRC32.h>
+#include <FastCRC.h>
 #include <EEPROM.h>
 
 #include "settings.h"
 
 #define LOG_AS "[FLASH] "
 #define SETTINGS_REVISION 2
+
+static FastCRC32 crc32;
 
 static void printSettings(const settings_t &setting) {
     Log.verbose(F(LOG_AS "Flash Settings:" CR));
@@ -53,7 +55,7 @@ bool loadConfig(settings_t &setting) {
     EEPROM.get(0, setting);
     EEPROM.end();
 
-    if(setting.version != SETTINGS_REVISION || setting.crc != CRC32::calculate((uint8_t*)&setting.data, sizeof(setting.data))) {
+    if(setting.version != SETTINGS_REVISION || setting.crc != crc32.cksum((uint8_t*)&setting.data, sizeof(setting.data))) {
         Log.error(F(LOG_AS "Loading settings: FAILED" CR));
         // set up the settings variable with default values
         memset(&setting, 0, sizeof(settings_t));
@@ -75,7 +77,7 @@ bool saveConfig(const settings_t &setting) {
     EEPROM.begin(sizeof(settings_t));
 
     store.version = SETTINGS_REVISION;
-    store.crc = CRC32::calculate((uint8_t*)&setting.data, sizeof(setting.data));
+    store.crc = crc32.cksum((uint8_t*)&setting.data, sizeof(setting.data));
     store.data = setting.data;
 
     EEPROM.put(0, store);
