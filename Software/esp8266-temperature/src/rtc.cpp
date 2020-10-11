@@ -36,12 +36,21 @@ extern "C" {
     #include "user_interface.h"
 }
 
-#define RTC_MEMORY_VERSION 1
 #define LOG_AS "[RTC] "
 #define EBOOT_RTC_OFFSET 128/4
 
+struct flags_t {
+    uint8_t reconfigure:1;
+    uint8_t bootloader:1;
+    uint8_t reserved:6;
+} __packed;
+
+struct rtc_t {
+    uint64_t time_acc;
+    uint32_t time_base;
+} __packed;
+
 struct rtcbuf_t {
-    uint8_t version;
     uint32_t crc;
     struct data_t  {
         uint8_t bssid[6];
@@ -52,21 +61,17 @@ struct rtcbuf_t {
         ip_addr_t dns;
         ip_addr_t mqtt_ip;
         uint16_t mqtt_local_port;
-        struct flags_t {
-            uint8_t reconfigure:1;
-            uint8_t bootloader:1;
-            uint8_t reserved:6;
-        } __attribute__ ((packed)) flags;
+        uint8_t reset_counter;
         uint32_t last_wake_time;
-    } __attribute__ ((packed)) data;
-} __attribute__ ((packed));
+        flags_t flags;
+    } __packed data;
+} __packed;
 
 static rtcbuf_t _rtc;
 static FastCRC32 crc32;
 
 void RtcMemory::printRtc() {
     Log.verbose(F(LOG_AS "RTC memory content:" CR));
-    Log.verbose(F(LOG_AS "    Ver:  %d" CR), _rtc.version);
     Log.verbose(F(LOG_AS "    CRC:  %X" CR), _rtc.crc);
     Log.verbose(F(LOG_AS "    Chan: %d" CR), _rtc.data.chl);
     Log.verbose(F(LOG_AS "    IP:   %s" CR), IPAddress(_rtc.data.ip).toString().c_str());
@@ -75,15 +80,21 @@ void RtcMemory::printRtc() {
     Log.verbose(F(LOG_AS "    DNS:  %s" CR), IPAddress(_rtc.data.dns).toString().c_str());
     Log.verbose(F(LOG_AS "    mqtt: %s" CR), IPAddress(_rtc.data.mqtt_ip).toString().c_str());
     Log.verbose(F(LOG_AS "    Flag: %X" CR), *((uint8_t*)&_rtc.data.flags));
+    Log.verbose(F(LOG_AS "    nRst: %d" CR), _rtc.data.reset_counter);
     Log.verbose(F(LOG_AS "    Port: %d" CR), _rtc.data.mqtt_local_port);
     Log.verbose(F(LOG_AS "    Wake: %d" CR), _rtc.data.last_wake_time);
+}
+
+void RtcMemory::begin() {
+    // calibrate the Real Time Counter
+    ReadRtcMemory();
 }
 
 void RtcMemory::ReadRtcMemory() {
     system_rtc_mem_read(64+EBOOT_RTC_OFFSET, &_rtc, sizeof(_rtc));
     
     _valid = true;
-    if(_rtc.version != RTC_MEMORY_VERSION || _rtc.crc != crc32.crc32((uint8_t*)&_rtc.data, sizeof(_rtc.data))) {
+    if(_rtc.crc != crc32.crc32((uint8_t*)&_rtc.data, sizeof(_rtc.data))) {
         Log.error(F(LOG_AS "RTC memory corrupted" CR));
         memset(&_rtc, 0x00, sizeof(rtcbuf_t));
         _valid = false;
@@ -92,7 +103,6 @@ void RtcMemory::ReadRtcMemory() {
 }
 
 void RtcMemory::WriteRtcMemory() {
-    _rtc.version = RTC_MEMORY_VERSION;
     _rtc.crc = crc32.crc32((uint8_t*)&_rtc.data, sizeof(_rtc.data));
 
     system_rtc_mem_write(64+EBOOT_RTC_OFFSET, &_rtc, sizeof(_rtc));
@@ -154,18 +164,30 @@ void RtcMemory::setMqttLocalPort(const uint16_t mqtt_local_port) {
     _rtc.data.mqtt_local_port = mqtt_local_port;
 }
 
-bool RtcMemory::getReconfigure() const {
+bool RtcMemory::isReconfigure() const {
     return (_rtc.data.flags.reconfigure == 1);
 }
 void RtcMemory::setReconfigure(const bool state) {
     _rtc.data.flags.reconfigure = (state) ? 1 : 0;
 }
 
-bool RtcMemory::getBootloader() const {
+bool RtcMemory::isBootloader() const {
     return (_rtc.data.flags.bootloader == 1);
 }
 void RtcMemory::setBootloader(const bool state) {
     _rtc.data.flags.bootloader = (state) ? 1 : 0;
+}
+
+uint8_t RtcMemory::getResetCounter() const {
+    return _rtc.data.reset_counter;
+}
+
+void RtcMemory::incResetCounter() {
+    _rtc.data.reset_counter++;
+}
+
+void RtcMemory::setResetCounter(const uint8_t value) {
+    _rtc.data.reset_counter = value;
 }
 
 uint32_t RtcMemory::getLastWakeDuration() const {

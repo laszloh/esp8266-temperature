@@ -30,14 +30,12 @@
 
 class RtcMemory{
 public:
-    static RtcMemory &getInstance() {
+    static RtcMemory &instance() {
         static RtcMemory instance;
         return instance;
     }
 
-    void begin() {
-        ReadRtcMemory();
-    }
+    void begin();
 
     void WriteRtcMemory();
 
@@ -69,19 +67,23 @@ public:
     uint16_t getMqttLocalPort() const;
     void setMqttLocalPort(const uint16_t mqtt_local_port);
 
-    bool getReconfigure() const;
+    bool isReconfigure() const;
     void setReconfigure(const bool state);
 
-    bool getBootloader() const;
+    bool isBootloader() const;
     void setBootloader(const bool state);
+
+    uint8_t getResetCounter() const;
+    void incResetCounter();
+    void setResetCounter(const uint8_t value);
 
     uint32_t getLastWakeDuration() const;
     void setLastWakeDuration(const uint32_t duration);
 
 private:
     RtcMemory() { };
-
-
+    RtcMemory(const RtcMemory &);
+    RtcMemory & operator = (const RtcMemory&);
 
     void ReadRtcMemory();
     void printRtc();

@@ -32,6 +32,7 @@
 #include <Adafruit_BMP085.h>
 #include <ArduinoLog.h>
 
+#include "ota.h"
 #include "rtc.h"
 #include "settings.h"
 #include "setup_ap.h"
@@ -48,7 +49,7 @@ constexpr const char *mqtt_server = "192.168.88.12";
 static Adafruit_BME280 bme280;
 static Adafruit_BMP085 bmp180;
 static MqttClient client;
-static RtcMemory rtc = RtcMemory::getInstance();
+static RtcMemory& rtc = RtcMemory::instance();
 
 static uint32_t boot_time;
 
@@ -88,6 +89,7 @@ void enter_sleep(void) {
 
 void setup() {
     float temp = NAN, pressure = NAN, humidity = NAN;
+    bool forceConfig = false, forceBoot = false;
     uint16_t curTime;
     settings_t sett;
 
@@ -99,15 +101,36 @@ void setup() {
     Serial.begin(74880);
     while(!Serial);
 
-    Log.begin(LOG_LEVEL_NOTICE, &Serial);
+    Log.begin(LOG_LEVEL_VERBOSE, &Serial);
     Log.notice(F(LOG_AS "ESP8266 startup..." CR));
 
     pinMode(D0, WAKEUP_PULLUP);
     rtc.begin();
 
+    Log.verbose(F(LOG_AS "Reset reason: %X" CR), ESP.getResetInfoPtr()->reason);
+
+    if(rtc.isRtcValid()) {
+        if(ESP.getResetInfoPtr()->reason == REASON_WDT_RST) {
+            forceConfig = rtc.isReconfigure();
+            forceBoot = rtc.isBootloader();
+        } else if (ESP.getResetInfoPtr()->reason == REASON_EXT_SYS_RST) {
+            Log.verbose(F(LOG_AS "Reset count: %d" CR), rtc.getResetCounter());
+            if(rtc.getResetCounter() < 3) {
+                // count to three external resets before enetering captive portal
+                rtc.incResetCounter();
+            } else {
+                forceConfig = true;
+                rtc.setResetCounter(0);
+            }
+            rtc.WriteRtcMemory();
+        }
+    }
+
     // load config from EEPROM
-    if(!loadConfig(sett)) {
+    if(!loadConfig(sett) || forceConfig) {
         // if we fail to load the settings, launch AP
+        rtc.setReconfigure(false);
+        rtc.WriteRtcMemory();
         if(!setup_ap(sett)) {
             // setup AP timed out
             Log.error(F(LOG_AS "Setup AP timed out. Going to forced sleep."));
@@ -129,6 +152,15 @@ void setup() {
         WiFi.forceSleepWake();
         WiFi.begin(sett.data.wifi_ssid, sett.data.wifi_pwd);
     }
+
+#if 0
+    if(forceBoot) {
+        rtc.setBootloader(false);
+        rtc.WriteRtcMemory();
+        OtaWorker::instance().begin();
+        return;
+    }
+#endif
 
     // boot up the BME280
     if(bme280.begin(BME280_ADDRESS_ALTERNATE)) {
@@ -195,6 +227,5 @@ void setup() {
 }
 
 void loop() {
-    // if we got here, goto sleep
-    enter_sleep();
+    OtaWorker::instance().handle();
 }

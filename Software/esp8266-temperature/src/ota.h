@@ -1,9 +1,9 @@
 /**
- * @file settings.h
+ * @file ota.h
  * @author Laszlo Hegedüs (laszlo.hegedues@gmail.com)
  * @brief 
  * @version 0.1
- * @date 2020-09-30
+ * @date 2020-10-09
  * 
  * \copyright Copyright (c) 2020 under the MIT License
  * 
@@ -25,41 +25,25 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-#ifndef _SETTINGS_H_
-#define _SETTINGS_H_
+#ifndef _OTA_H_
+#define _OTA_H_
 
-#define SETUP_TIME_SEC  120
-#define ESP_WIFI_TIMEOUT 15000
-#define MQTT_TIMEOUT 2000
+class OtaWorker {
+public:
+    static OtaWorker& instance() {
+        static OtaWorker instace;
+        return instace;
+    }
 
-#define DEFAULT_MQTT_HOST "192.168.88.12"
-#define DEFAULT_MQTT_TOPIC "/revai/sensors/%s/%s"
+    void begin();
 
-#define WIFI_SSID_LEN 33
-#define WIFI_PWD_LEN 64
+    void handle();
 
-#define MQTT_HOST_LEN 64
-#define MQTT_LOGIN_LEN 32
-#define MQTT_PASSWORD_LEN 32
-#define MQTT_TOPIC_LEN 64
+private:
+    OtaWorker() { }
+    OtaWorker(const OtaWorker&);
+    OtaWorker & operator = (const OtaWorker&);
 
-typedef struct __packed {
-    uint8_t version;
-    uint32_t crc;
-
-    struct data_t {
-        char wifi_ssid[WIFI_SSID_LEN];
-        char wifi_pwd[WIFI_PWD_LEN];
-
-        char mqtt_host[MQTT_HOST_LEN];
-        uint16_t mqtt_port;
-        char mqtt_login[MQTT_LOGIN_LEN];
-        char mqtt_password[MQTT_PASSWORD_LEN];
-        char mqtt_topic[MQTT_TOPIC_LEN];
-    } __packed data;
-} settings_t;
-
-bool loadConfig(settings_t &setting);
-bool saveConfig(const settings_t &setting);
+};
 
 #endif

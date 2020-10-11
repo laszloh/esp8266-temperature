@@ -37,19 +37,17 @@
 
 static WiFiManager wm;
 
-void bindServerCallback() {
-
-}
-
 bool setup_ap(settings_t &setting) {
     bool result;
 
 #ifndef DISABLE_LOGGING
     wm.debugPlatformInfo();
 #endif
-    wm.setWebServerCallback(bindServerCallback);
 
     Log.notice(F(LOG_AS "Entering captive portal" CR));
+
+    std::vector<const char*> menu = {"wifi","info","param","update","sep","restart","exit"};
+    wm.setMenu(menu);
 
     // add additional parameters
     WiFiManagerParameter param_mqtt_host("mhost", "MQTT Host", setting.data.mqtt_host, MQTT_HOST_LEN-1);

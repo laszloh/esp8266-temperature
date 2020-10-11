@@ -38,7 +38,7 @@
 
 static WiFiClient wifiClient;
 static PubSubClient mqtt(wifiClient);
-static RtcMemory rtc = RtcMemory::getInstance();
+static RtcMemory& rtc = RtcMemory::instance();
 
 constexpr const char *staticSetupTopic = "/revai/sensors/setup";
 
@@ -66,12 +66,16 @@ void MqttClient::callback(char* topic, uint8_t* payload, uint16_t length) {
     deserializeJson(jsonDoc, payload, length);
 
     bool forceSetup = jsonDoc["setup-force"];
-    if(forceSetup) {
-        Log.notice(F(LOG_AS "Entering setup mode" CR));
-        rtc.setReconfigure(true);
-        rtc.WriteRtcMemory();
+    bool forceBoot = jsonDoc["boot-force"];
+
+    rtc.setReconfigure(forceSetup);
+    rtc.setBootloader(forceBoot);
+
+    if(forceBoot || forceSetup) {
+        Log.notice(F(LOG_AS "Entering %s mode" CR), (forceSetup) ? F("setup") : F("bootloader"));
         Serial.flush();
-        ESP.reset();
+        ESP.wdtDisable();
+        while(1);
     }
 }
 
@@ -79,7 +83,7 @@ bool MqttClient::connect(const uint32_t timeout) {
     uint32_t start_ms = millis();
 
     while(!mqtt.connected()) {
-        mqtt.connect(clientId, setting.data.mqtt_login, setting.data.mqtt_password, 0, 0, 0, 0, 0);
+        mqtt.connect(clientId, setting.data.mqtt_login, setting.data.mqtt_password, 0, 0, 0, 0, false);
         if((millis() - start_ms) > timeout) {
             Log.error(F(LOG_AS "Connection timed out at %l ms" CR), millis());
             return false;
