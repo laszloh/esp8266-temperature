@@ -55,7 +55,7 @@ bool loadConfig(settings_t &setting) {
     EEPROM.get(0, setting);
     EEPROM.end();
 
-    if(setting.version != SETTINGS_REVISION || setting.crc != crc32.cksum((uint8_t*)&setting.data, sizeof(setting.data))) {
+    if(setting.crc != crc32.cksum((uint8_t*)&setting.data, sizeof(setting.data))) {
         Log.error(F(LOG_AS "Loading settings: FAILED" CR));
         // set up the settings variable with default values
         memset(&setting, 0, sizeof(settings_t));
@@ -76,7 +76,6 @@ bool saveConfig(const settings_t &setting) {
 
     EEPROM.begin(sizeof(settings_t));
 
-    store.version = SETTINGS_REVISION;
     store.crc = crc32.cksum((uint8_t*)&setting.data, sizeof(setting.data));
     store.data = setting.data;
 

@@ -33,14 +33,13 @@
 
 #include "mqtt_client.h"
 #include "rtc.h"
+#include "settings.h"
 
 #define LOG_AS "[MQTT] "
 
 static WiFiClient wifiClient;
 static PubSubClient mqtt(wifiClient);
 static RtcMemory& rtc = RtcMemory::instance();
-
-constexpr const char *staticSetupTopic = "/revai/sensors/setup";
 
 MqttClient::MqttClient(){
     snprintf(clientId, sizeof(clientId)-1, "ESP%04X", ESP.getChipId());
@@ -62,35 +61,55 @@ void MqttClient::begin(const settings_t &sett) {
 }
 
 void MqttClient::callback(char* topic, uint8_t* payload, uint16_t length) {
+    bool reboot = false;
     StaticJsonDocument<200> jsonDoc;
     deserializeJson(jsonDoc, payload, length);
+    settings_t sett = MqttClient::instace().setting;
 
-    bool forceSetup = jsonDoc["setup-force"];
-    bool forceBoot = jsonDoc["boot-force"];
+    // check if we have a new setup
+    if(jsonDoc["fingerprint"] > sett.data.fingerprint) {
+        reboot = true;
+        // we have a newer setting than we had before
+        sett.data.fingerprint = jsonDoc["fingerprint"];
+        const char* str = jsonDoc["wifi-ssid"];
+        memcpy(sett.data.wifi_ssid, str, sizeof(sett.data.wifi_ssid));
+        str = jsonDoc["wifi-pwd"];
+        memcpy(sett.data.wifi_pwd, str, sizeof(sett.data.wifi_pwd));
+        str = jsonDoc["mqtt-host"];
+        memcpy(sett.data.mqtt_host, str, sizeof(sett.data.mqtt_host));
+        sett.data.mqtt_port = jsonDoc["mqtt-port"];
+        str = jsonDoc["mqtt-login"];
+        memcpy(sett.data.mqtt_login, str, sizeof(sett.data.mqtt_login));
+        str = jsonDoc["mqtt-pass"];
+        memcpy(sett.data.mqtt_password, str, sizeof(sett.data.mqtt_password));
+        str = jsonDoc["mqtt-pass"];
+        memcpy(sett.data.mqtt_topic, str, sizeof(sett.data.mqtt_topic));
+        saveConfig(sett);
+    }
 
-    rtc.setReconfigure(forceSetup);
-    rtc.setBootloader(forceBoot);
-
-    if(forceBoot || forceSetup) {
-        Log.notice(F(LOG_AS "Entering %s mode" CR), (forceSetup) ? F("setup") : F("bootloader"));
+    if(reboot) {
+        Log.notice(F(LOG_AS "New settings received. Rebooting..." CR));
         Serial.flush();
-        ESP.wdtDisable();
-        while(1);
+        ESP.reset();
     }
 }
 
 bool MqttClient::connect(const uint32_t timeout) {
     uint32_t start_ms = millis();
+    char topic[64];
 
     while(!mqtt.connected()) {
-        mqtt.connect(clientId, setting.data.mqtt_login, setting.data.mqtt_password, 0, 0, 0, 0, false);
+        mqtt.connect(clientId, setting.data.mqtt_login, setting.data.mqtt_password);
         if((millis() - start_ms) > timeout) {
             Log.error(F(LOG_AS "Connection timed out at %l ms" CR), millis());
             return false;
         }
     }
     mqtt.setCallback(callback);
-    mqtt.subscribe(staticSetupTopic);
+    snprintf(topic, sizeof(topic), setting.data.mqtt_topic, clientId, "setup");
+    mqtt.subscribe(topic);
+    snprintf(topic, sizeof(topic), setting.data.mqtt_topic, "all", "setup");
+    mqtt.subscribe(topic);
 
     return true;
 }

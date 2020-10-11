@@ -33,7 +33,7 @@
 #define MQTT_TIMEOUT 2000
 
 #define DEFAULT_MQTT_HOST "192.168.88.12"
-#define DEFAULT_MQTT_TOPIC "/revai/sensors/%s/%s"
+#define DEFAULT_MQTT_TOPIC "revai/sensors/%s/%s"
 
 #define WIFI_SSID_LEN 33
 #define WIFI_PWD_LEN 64
@@ -44,10 +44,10 @@
 #define MQTT_TOPIC_LEN 64
 
 typedef struct __packed {
-    uint8_t version;
     uint32_t crc;
 
     struct data_t {
+        uint32 fingerprint;
         char wifi_ssid[WIFI_SSID_LEN];
         char wifi_pwd[WIFI_PWD_LEN];
 

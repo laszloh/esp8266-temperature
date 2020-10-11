@@ -32,7 +32,11 @@
 
 class MqttClient {
 public:
-    MqttClient();
+    static MqttClient& instace() {
+        static MqttClient instace;
+        return instace;
+    }
+
     void begin(const settings_t &sett);
     bool connect(const uint32_t timeout=MQTT_TIMEOUT);
 
@@ -41,6 +45,10 @@ public:
     void loop();
 
 private:
+    MqttClient();
+    MqttClient(const MqttClient&);
+    MqttClient& operator = (const MqttClient&);
+
     settings_t setting;
     char clientId[32];
 

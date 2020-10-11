@@ -48,7 +48,7 @@ constexpr const char *mqtt_server = "192.168.88.12";
 
 static Adafruit_BME280 bme280;
 static Adafruit_BMP085 bmp180;
-static MqttClient client;
+static MqttClient& client = MqttClient::instace();
 static RtcMemory& rtc = RtcMemory::instance();
 
 static uint32_t boot_time;
@@ -89,7 +89,7 @@ void enter_sleep(void) {
 
 void setup() {
     float temp = NAN, pressure = NAN, humidity = NAN;
-    bool forceConfig = false, forceBoot = false;
+    bool forceConfig = false;
     uint16_t curTime;
     settings_t sett;
 
@@ -110,10 +110,7 @@ void setup() {
     Log.verbose(F(LOG_AS "Reset reason: %X" CR), ESP.getResetInfoPtr()->reason);
 
     if(rtc.isRtcValid()) {
-        if(ESP.getResetInfoPtr()->reason == REASON_WDT_RST) {
-            forceConfig = rtc.isReconfigure();
-            forceBoot = rtc.isBootloader();
-        } else if (ESP.getResetInfoPtr()->reason == REASON_EXT_SYS_RST) {
+        if (ESP.getResetInfoPtr()->reason == REASON_EXT_SYS_RST) {
             Log.verbose(F(LOG_AS "Reset count: %d" CR), rtc.getResetCounter());
             if(rtc.getResetCounter() < 3) {
                 // count to three external resets before enetering captive portal
@@ -209,6 +206,7 @@ void setup() {
     rtc.setGateway(WiFi.gatewayIP());
     rtc.setMask(WiFi.subnetMask());
     rtc.setDns(WiFi.dnsIP());
+    rtc.setResetCounter(0);
     rtc.WriteRtcMemory();
 
     // Start the MQTT party
