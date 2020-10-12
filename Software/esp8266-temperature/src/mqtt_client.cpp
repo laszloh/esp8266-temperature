@@ -42,12 +42,14 @@ static PubSubClient mqtt(wifiClient);
 static RtcMemory& rtc = RtcMemory::instance();
 
 MqttClient::MqttClient(){
-    snprintf(clientId, sizeof(clientId)-1, "ESP%04X", ESP.getChipId());
 }
 
 void MqttClient::begin(const settings_t &sett) {
     IPAddress mqttIp;
     setting = sett;
+
+    snprintf(clientId, sizeof(clientId)-1, setting.data.mqtt_id, ESP.getChipId());
+    Log.verbose(F(LOG_AS "Client id: %s" CR), clientId);
 
     wifiClient.setNoDelay(true);
     if(rtc.isRtcValid())
@@ -65,6 +67,8 @@ void MqttClient::callback(char* topic, uint8_t* payload, uint16_t length) {
     StaticJsonDocument<200> jsonDoc;
     deserializeJson(jsonDoc, payload, length);
     settings_t sett = MqttClient::instace().setting;
+    Log.verbose(F(LOG_AS "Got a new setup topic" CR));
+    Log.verbose(F(LOG_AS "topic-fingerprint: %d our fingerprint: %d" CR), jsonDoc["fingerprint"].as<int>(), sett.data.fingerprint);
 
     // check if we have a new setup
     if(jsonDoc["fingerprint"] > sett.data.fingerprint) {
@@ -73,11 +77,12 @@ void MqttClient::callback(char* topic, uint8_t* payload, uint16_t length) {
         sett.data.fingerprint = jsonDoc["fingerprint"];
         strlcpy(sett.data.wifi_ssid, jsonDoc["wifi-ssid"] | DEFAULT_WIFI_SSID, sizeof(sett.data.wifi_ssid));
         strlcpy(sett.data.wifi_pwd, jsonDoc["wifi-pwd"] | DEFAULT_WIFI_PASS, sizeof(sett.data.wifi_pwd));
-        strlcpy(sett.data.mqtt_host, jsonDoc["mqtt-host"], sizeof(sett.data.mqtt_host));
+        strlcpy(sett.data.mqtt_host, jsonDoc["mqtt-host"] | DEFAULT_MQTT_HOST, sizeof(sett.data.mqtt_host));
         sett.data.mqtt_port = jsonDoc["mqtt-port"] | DEFAULT_MQTT_PORT;
         strlcpy(sett.data.mqtt_login, jsonDoc["mqtt-login"] | DEFAULT_MQTT_LOGIN, sizeof(sett.data.mqtt_login));
         strlcpy(sett.data.mqtt_password, jsonDoc["mqtt-pass"] | DEFAULT_MQTT_PASS, sizeof(sett.data.mqtt_password));
         strlcpy(sett.data.mqtt_topic, jsonDoc["mqtt-topic"] | DEFAULT_MQTT_TOPIC, sizeof(sett.data.mqtt_topic));
+        strlcpy(sett.data.mqtt_id, jsonDoc["mqtt-id"] | DEFAULT_MQTT_ID, sizeof(sett.data.mqtt_id));
         sett.data.sleep_time = jsonDoc["sleep-time"] | DEFAULT_ESP_SLEEP;
         saveConfig(sett);
     }
@@ -91,20 +96,21 @@ void MqttClient::callback(char* topic, uint8_t* payload, uint16_t length) {
 
 bool MqttClient::connect(const uint32_t timeout) {
     uint32_t start_ms = millis();
-    char topic[64];
+    char setup_topic[128];
 
     while(!mqtt.connected()) {
-        mqtt.connect(clientId, setting.data.mqtt_login, setting.data.mqtt_password);
+        mqtt.connect(clientId, setting.data.mqtt_login, setting.data.mqtt_password, 0, 0, 0, 0, false);
         if((millis() - start_ms) > timeout) {
             Log.error(F(LOG_AS "Connection timed out at %l ms" CR), millis());
             return false;
         }
     }
     mqtt.setCallback(callback);
-    snprintf(topic, sizeof(topic), setting.data.mqtt_topic, clientId, "setup");
-    mqtt.subscribe(topic);
-    snprintf(topic, sizeof(topic), setting.data.mqtt_topic, "all", "setup");
-    mqtt.subscribe(topic);
+    mqtt.setBufferSize(1024);
+    snprintf(setup_topic, sizeof(setup_topic), setting.data.mqtt_topic, clientId, "setup");
+    mqtt.subscribe(setup_topic);
+    snprintf(setup_topic, sizeof(setup_topic), setting.data.mqtt_topic, "all", "setup");
+    mqtt.subscribe(setup_topic);
 
     return true;
 }
@@ -137,6 +143,7 @@ void MqttClient::sendStatus(uint16_t voltage) {
 
     doc["wakeTime"] = rtc.getLastWakeDuration();;
     doc["Voltage"] = voltage;
+    doc["fingerprint"] = setting.data.fingerprint;
 
     JsonObject Memory = doc.createNestedObject(F("Memory"));
     Memory["StackFree"] = ESP.getFreeContStack();

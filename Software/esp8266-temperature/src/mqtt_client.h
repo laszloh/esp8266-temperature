@@ -44,6 +44,7 @@ public:
     void sendStatus(uint16_t voltage);
     void loop();
 
+
 private:
     MqttClient();
     MqttClient(const MqttClient&);

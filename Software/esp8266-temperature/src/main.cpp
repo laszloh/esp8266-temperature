@@ -50,6 +50,9 @@ static MqttClient& client = MqttClient::instace();
 static RtcMemory& rtc = RtcMemory::instance();
 
 static uint32_t boot_time;
+static float temp = NAN;
+static float pressure = NAN;
+static float humidity = NAN;
 
 ADC_MODE(ADC_VCC)
 
@@ -86,7 +89,6 @@ void enter_sleep(void) {
 }
 
 void setup() {
-    float temp = NAN, pressure = NAN, humidity = NAN;
     bool forceConfig = false;
     uint16_t curTime;
     settings_t sett;
@@ -204,19 +206,18 @@ void setup() {
 
     // Start the MQTT party
     client.begin(sett);
-    if(client.connect()) {
-        uint16_t vcc = ESP.getVcc();
-        client.sendMeasurement(temp, humidity, pressure);
-        client.sendStatus(vcc);
-
-        for(uint8_t i=0;i<5;i++) {
-            client.loop();
-            delay(100);
-        }
-    }
-    enter_sleep();
+    if(!client.connect())
+        enter_sleep();
 }
 
 void loop() {
+    uint16_t vcc = ESP.getVcc();
+    client.sendMeasurement(temp, humidity, pressure);
+    client.sendStatus(vcc);
+
+    for(auto i=0;i<50;i++) {
+        client.loop();
+        delay(10);
+    }
     enter_sleep();
 }
