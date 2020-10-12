@@ -48,6 +48,7 @@ static void printSettings(const settings_t &setting) {
     Log.verbose(F(LOG_AS "    Login: %s" CR), setting.data.mqtt_login);
     Log.verbose(F(LOG_AS "    Pass:  %s" CR), setting.data.mqtt_password);
     Log.verbose(F(LOG_AS "    Topic: %s" CR), setting.data.mqtt_topic);
+    Log.verbose(F(LOG_AS "    Sleep: %d" CR), setting.data.sleep_time);
 }
 
 bool loadConfig(settings_t &setting) {
@@ -60,9 +61,9 @@ bool loadConfig(settings_t &setting) {
         // set up the settings variable with default values
         memset(&setting, 0, sizeof(settings_t));
 
-        setting.data.mqtt_port = 1883;
-        strncpy(setting.data.mqtt_host, DEFAULT_MQTT_HOST, MQTT_HOST_LEN);
-        strncpy(setting.data.mqtt_topic, DEFAULT_MQTT_TOPIC, MQTT_TOPIC_LEN);
+        setting.data.mqtt_port = DEFAULT_MQTT_PORT;
+        strlcpy(setting.data.mqtt_host, DEFAULT_MQTT_HOST, MQTT_HOST_LEN);
+        strlcpy(setting.data.mqtt_topic, DEFAULT_MQTT_TOPIC, MQTT_TOPIC_LEN);
         return false;;
     }
     Log.notice(F(LOG_AS "Loading settings: OK" CR));

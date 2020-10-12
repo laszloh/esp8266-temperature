@@ -28,12 +28,22 @@
 #ifndef _SETTINGS_H_
 #define _SETTINGS_H_
 
+#include "wifi.h"
+
 #define SETUP_TIME_SEC  120
 #define ESP_WIFI_TIMEOUT 15000
 #define MQTT_TIMEOUT 2000
 
-#define DEFAULT_MQTT_HOST "192.168.88.12"
-#define DEFAULT_MQTT_TOPIC "revai/sensors/%s/%s"
+#define DEFAULT_WIFI_SSID   PRIVATE_WIFI_SSID
+#define DEFAULT_WIFI_PASS   PRIVATE_WIFI_PASS
+
+#define DEFAULT_MQTT_HOST   "192.168.88.12"
+#define DEFAULT_MQTT_TOPIC  "revai/sensors/%s/%s"
+#define DEFAULT_MQTT_PORT   1883
+#define DEFAULT_MQTT_LOGIN  PRIVATE_MQTT_LOGIN
+#define DEFAULT_MQTT_PASS   PRIVATE_MQTT_PASS
+
+#define DEFAULT_ESP_SLEEP   (30*60)
 
 #define WIFI_SSID_LEN 33
 #define WIFI_PWD_LEN 64
@@ -56,6 +66,7 @@ typedef struct __packed {
         char mqtt_login[MQTT_LOGIN_LEN];
         char mqtt_password[MQTT_PASSWORD_LEN];
         char mqtt_topic[MQTT_TOPIC_LEN];
+        uint32_t sleep_time;
     } __packed data;
 } settings_t;
 

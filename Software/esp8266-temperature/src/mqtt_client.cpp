@@ -71,19 +71,14 @@ void MqttClient::callback(char* topic, uint8_t* payload, uint16_t length) {
         reboot = true;
         // we have a newer setting than we had before
         sett.data.fingerprint = jsonDoc["fingerprint"];
-        const char* str = jsonDoc["wifi-ssid"];
-        memcpy(sett.data.wifi_ssid, str, sizeof(sett.data.wifi_ssid));
-        str = jsonDoc["wifi-pwd"];
-        memcpy(sett.data.wifi_pwd, str, sizeof(sett.data.wifi_pwd));
-        str = jsonDoc["mqtt-host"];
-        memcpy(sett.data.mqtt_host, str, sizeof(sett.data.mqtt_host));
-        sett.data.mqtt_port = jsonDoc["mqtt-port"];
-        str = jsonDoc["mqtt-login"];
-        memcpy(sett.data.mqtt_login, str, sizeof(sett.data.mqtt_login));
-        str = jsonDoc["mqtt-pass"];
-        memcpy(sett.data.mqtt_password, str, sizeof(sett.data.mqtt_password));
-        str = jsonDoc["mqtt-pass"];
-        memcpy(sett.data.mqtt_topic, str, sizeof(sett.data.mqtt_topic));
+        strlcpy(sett.data.wifi_ssid, jsonDoc["wifi-ssid"] | DEFAULT_WIFI_SSID, sizeof(sett.data.wifi_ssid));
+        strlcpy(sett.data.wifi_pwd, jsonDoc["wifi-pwd"] | DEFAULT_WIFI_PASS, sizeof(sett.data.wifi_pwd));
+        strlcpy(sett.data.mqtt_host, jsonDoc["mqtt-host"], sizeof(sett.data.mqtt_host));
+        sett.data.mqtt_port = jsonDoc["mqtt-port"] | DEFAULT_MQTT_PORT;
+        strlcpy(sett.data.mqtt_login, jsonDoc["mqtt-login"] | DEFAULT_MQTT_LOGIN, sizeof(sett.data.mqtt_login));
+        strlcpy(sett.data.mqtt_password, jsonDoc["mqtt-pass"] | DEFAULT_MQTT_PASS, sizeof(sett.data.mqtt_password));
+        strlcpy(sett.data.mqtt_topic, jsonDoc["mqtt-topic"] | DEFAULT_MQTT_TOPIC, sizeof(sett.data.mqtt_topic));
+        sett.data.sleep_time = jsonDoc["sleep-time"] | DEFAULT_ESP_SLEEP;
         saveConfig(sett);
     }
 

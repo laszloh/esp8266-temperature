@@ -108,6 +108,11 @@ void RtcMemory::WriteRtcMemory() {
     system_rtc_mem_write(64+EBOOT_RTC_OFFSET, &_rtc, sizeof(_rtc));
 }
 
+void RtcMemory::InvalidiateRtcMemory() {
+    memset(&_rtc, 0, sizeof(rtcbuf_t));
+    system_rtc_mem_write(64+EBOOT_RTC_OFFSET, &_rtc, sizeof(_rtc));
+}
+
 void RtcMemory::getBssid(uint8_t bssid[6]) const {
     memcpy(bssid, _rtc.data.bssid, 6);
 }

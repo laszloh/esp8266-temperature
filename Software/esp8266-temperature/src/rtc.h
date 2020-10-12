@@ -39,6 +39,8 @@ public:
 
     void WriteRtcMemory();
 
+    void InvalidiateRtcMemory();
+
     bool isRtcValid() const {
         return _valid;
     }

@@ -32,7 +32,6 @@
 #include <Adafruit_BMP085.h>
 #include <ArduinoLog.h>
 
-#include "ota.h"
 #include "rtc.h"
 #include "settings.h"
 #include "setup_ap.h"
@@ -41,8 +40,7 @@
 #define LOG_AS  "[MAIN] "
 
 static constexpr uint32_t timeout = ESP_WIFI_TIMEOUT;     //< wifi connect timeout
-static constexpr uint32_t sleep_time = 15*60*1000*1000;   //< deep sleep time in us
-//constexpr uint32_t sleep_time = 5*1000*1000;     //< deep sleep time in us
+uint32_t sleep_time = 15*60*1000*1000;                    //< deep sleep time in us
 
 constexpr const char *mqtt_server = "192.168.88.12";
 
@@ -112,8 +110,8 @@ void setup() {
     if(rtc.isRtcValid()) {
         if (ESP.getResetInfoPtr()->reason == REASON_EXT_SYS_RST) {
             Log.verbose(F(LOG_AS "Reset count: %d" CR), rtc.getResetCounter());
-            if(rtc.getResetCounter() < 3) {
-                // count to three external resets before enetering captive portal
+            if(rtc.getResetCounter() < 2) {
+                // count to two external resets before enetering captive portal
                 rtc.incResetCounter();
             } else {
                 forceConfig = true;
@@ -135,6 +133,9 @@ void setup() {
         }
     }
 
+    // set the sleep timer (converting von s to us)
+    sleep_time = sett.data.sleep_time * 1000 * 1000;    
+
     // boot up the wifi to send the data
     if(rtc.isRtcValid()) {
         Log.notice(F(LOG_AS "RTC config: found" CR));
@@ -149,15 +150,6 @@ void setup() {
         WiFi.forceSleepWake();
         WiFi.begin(sett.data.wifi_ssid, sett.data.wifi_pwd);
     }
-
-#if 0
-    if(forceBoot) {
-        rtc.setBootloader(false);
-        rtc.WriteRtcMemory();
-        OtaWorker::instance().begin();
-        return;
-    }
-#endif
 
     // boot up the BME280
     if(bme280.begin(BME280_ADDRESS_ALTERNATE)) {
@@ -190,7 +182,8 @@ void setup() {
             Log.error(F(LOG_AS "Could not connect to WiFi..." CR));
             curTime = millis()-boot_time;
             Log.error(F(LOG_AS "Giving up at %l ms" CR), curTime);
-            Log.error(F(LOG_AS "going to forced sleep... " CR));
+            Log.error(F(LOG_AS "resetting rtc and going to forced sleep..." CR));
+            rtc.InvalidiateRtcMemory();
             enter_sleep();
         }
         delay(10);
@@ -225,5 +218,5 @@ void setup() {
 }
 
 void loop() {
-    OtaWorker::instance().handle();
+    enter_sleep();
 }
