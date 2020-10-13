@@ -15,7 +15,7 @@
 #define nvs_platform_h
 
 
-#ifdef ESP_PLATFORM
+#ifndef ESP_PLATFORM
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 

@@ -36,11 +36,18 @@
 
 #include "nvs_flash.h"
 #include "nvs.h"
+#include "user_interface.h"
 
 #define LOG_AS "[FLASH] "
 #define SETTINGS_REVISION 2
 
 static FastCRC32 crc32;
+
+extern "C" uint32_t _FS_start;
+extern "C" uint32_t _FS_end;
+
+static const uint32_t sector_start = ((uint32_t)&_FS_start - 0x40200000) / SPI_FLASH_SEC_SIZE;
+static const uint32_t sector_count = (((uint32_t)&_FS_end - 0x40200000) / SPI_FLASH_SEC_SIZE) - sector_start;
 
 static void printSettings(const settings_t &setting) {
     Log.verbose(F(LOG_AS "Flash Settings:" CR));
@@ -52,6 +59,12 @@ static void printSettings(const settings_t &setting) {
     Log.verbose(F(LOG_AS "    Pass:  %s" CR), setting.data.mqtt_password);
     Log.verbose(F(LOG_AS "    Topic: %s" CR), setting.data.mqtt_topic);
     Log.verbose(F(LOG_AS "    Sleep: %d" CR), setting.data.sleep_time);
+}
+
+esp_err_t nvs_flash_erase_partition(const char *part_name) {
+    for(auto i = 0;i<sector_count;i++) {
+        spi_flash_erase_sector(sector_start + i);
+    }
 }
 
 bool loadConfig(settings_t &setting) {
@@ -78,17 +91,23 @@ bool loadConfig(settings_t &setting) {
     noInterrupts();
 
     Log.verbose(F(LOG_AS "Opening Non-Volatile Storage (NVS) handle... " CR));
-    esp_err_t err = nvs_flash_init();
+    esp_err_t err = nvs_flash_init_custom("nvs", sector_start, sector_count);
     if (err == ESP_ERR_NVS_NO_FREE_PAGES) {
         // NVS partition was truncated and needs to be erased
         // Retry nvs_flash_init
-        ESP_ERROR_CHECK(nvs_flash_erase());
-        err = nvs_flash_init();
+        if(nvs_flash_erase()!=ESP_OK) {
+            Log.error(F(LOG_AS "Failed to format flash" CR));
+            return false;
+        }
+        err = nvs_flash_init_custom("nvs", sector_start, sector_count);
     }
-    ESP_ERROR_CHECK( err );
+    if(err!=ESP_OK) {
+        Log.error(F(LOG_AS "Failed to init nvs region" CR));
+        return false;
+    }
 
     // Open
-    nvs_handle_t my_handle;
+    nvs_handle my_handle;
     err = nvs_open("storage", NVS_READWRITE, &my_handle);
     if (err != ESP_OK) {
         Log.error(F(LOG_AS "Error (%X) opening NVS handle!" CR), err);

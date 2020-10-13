@@ -20,14 +20,12 @@
 #include <type_traits>
 #include <cstring>
 #include <algorithm>
+//#include "esp_spi_flash.h"
 #include "compressed_enum_table.hpp"
 #include "intrusive_list.h"
 #include "nvs_item_hash_list.hpp"
 
-extern "C" {
-    #include "user_interface.h"
-}
-
+#include "user_interface.h"
 
 namespace nvs
 {
@@ -49,15 +47,11 @@ public:
     static const size_t ENTRY_SIZE  = 32;
     static const size_t ENTRY_COUNT = 126;
     static const uint32_t INVALID_ENTRY = 0xffffffff;
-
-    static const size_t CHUNK_MAX_SIZE = ENTRY_SIZE * (ENTRY_COUNT - 1);
+    
+    static const size_t BLOB_MAX_SIZE = ENTRY_SIZE * (ENTRY_COUNT / 2 - 1);
 
     static const uint8_t NS_INDEX = 0;
     static const uint8_t NS_ANY = 255;
-
-    static const uint8_t CHUNK_ANY = Item::CHUNK_ANY;
-
-    static const uint8_t NVS_VERSION = 0xfe; // Decrement to upgrade
 
     enum class PageState : uint32_t {
         // All bits set, default state after flash erase. Page has not been initialized yet.
@@ -91,20 +85,16 @@ public:
     esp_err_t getSeqNumber(uint32_t& seqNumber) const;
 
     esp_err_t setSeqNumber(uint32_t seqNumber);
- 
-    esp_err_t setVersion(uint8_t version);
 
-    esp_err_t writeItem(uint8_t nsIndex, ItemType datatype, const char* key, const void* data, size_t dataSize, uint8_t chunkIdx = CHUNK_ANY);
+    esp_err_t writeItem(uint8_t nsIndex, ItemType datatype, const char* key, const void* data, size_t dataSize);
 
-    esp_err_t readItem(uint8_t nsIndex, ItemType datatype, const char* key, void* data, size_t dataSize, uint8_t chunkIdx = CHUNK_ANY, VerOffset chunkStart = VerOffset::VER_ANY);
+    esp_err_t readItem(uint8_t nsIndex, ItemType datatype, const char* key, void* data, size_t dataSize);
 
-    esp_err_t cmpItem(uint8_t nsIndex, ItemType datatype, const char* key, const void* data, size_t dataSize, uint8_t chunkIdx = CHUNK_ANY, VerOffset chunkStart = VerOffset::VER_ANY);
+    esp_err_t eraseItem(uint8_t nsIndex, ItemType datatype, const char* key);
 
-    esp_err_t eraseItem(uint8_t nsIndex, ItemType datatype, const char* key, uint8_t chunkIdx = CHUNK_ANY, VerOffset chunkStart = VerOffset::VER_ANY);
+    esp_err_t findItem(uint8_t nsIndex, ItemType datatype, const char* key);
 
-    esp_err_t findItem(uint8_t nsIndex, ItemType datatype, const char* key, uint8_t chunkIdx = CHUNK_ANY, VerOffset chunkStart = VerOffset::VER_ANY);
-
-    esp_err_t findItem(uint8_t nsIndex, ItemType datatype, const char* key, size_t &itemIndex, Item& item, uint8_t chunkIdx = CHUNK_ANY, VerOffset chunkStart = VerOffset::VER_ANY);
+    esp_err_t findItem(uint8_t nsIndex, ItemType datatype, const char* key, size_t &itemIndex, Item& item);
 
     template<typename T>
     esp_err_t writeItem(uint8_t nsIndex, const char* key, const T& value)
@@ -116,12 +106,6 @@ public:
     esp_err_t readItem(uint8_t nsIndex, const char* key, T& value)
     {
         return readItem(nsIndex, itemTypeOf(value), key, &value, sizeof(value));
-    }
-
-    template<typename T>
-    esp_err_t cmpItem(uint8_t nsIndex, const char* key, const T& value)
-    {
-        return cmpItem(nsIndex, itemTypeOf(value), key, &value, sizeof(value));
     }
 
     template<typename T>
@@ -139,19 +123,17 @@ public:
     {
         return mErasedEntryCount;
     }
-    size_t getVarDataTailroom() const ;
+
 
     esp_err_t markFull();
 
     esp_err_t markFreeing();
 
-    esp_err_t copyItems(Page& other);
+    esp_err_t moveItem(Page& other);
 
     esp_err_t erase();
 
     void debugDump() const;
-
-    esp_err_t calcEntries(nvs_stats_t &nvsStats);
 
 protected:
 
@@ -160,13 +142,12 @@ protected:
     public:
         Header()
         {
-            std::fill_n(mReserved, sizeof(mReserved)/sizeof(mReserved[0]), UINT8_MAX);
+            std::fill_n(mReserved, sizeof(mReserved)/sizeof(mReserved[0]), UINT32_MAX);
         }
 
         PageState mState;       // page state
         uint32_t mSeqNumber;    // sequence number of this page
-        uint8_t mVersion;       // nvs format version
-        uint8_t mReserved[19];  // unused, must be 0xff
+        uint32_t mReserved[5];  // unused, must be 0xffffffff
         uint32_t mCrc32;        // crc of everything except mState
 
         uint32_t calculateCrc32();
@@ -217,7 +198,6 @@ protected:
     uint32_t mBaseAddress = 0;
     PageState mState = PageState::INVALID;
     uint32_t mSeqNumber = UINT32_MAX;
-    uint8_t mVersion = NVS_VERSION;
     typedef CompressedEnumTable<EntryState, 2, ENTRY_COUNT> TEntryTable;
     TEntryTable mEntryTable;
     size_t mNextFreeEntry = INVALID_ENTRY;

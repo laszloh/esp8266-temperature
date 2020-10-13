@@ -20,7 +20,7 @@ namespace nvs
 HashList::HashList()
 {
 }
-
+    
 void HashList::clear()
 {
     for (auto it = mBlockList.begin(); it != mBlockList.end();) {
@@ -30,7 +30,7 @@ void HashList::clear()
         delete static_cast<HashListBlock*>(tmp);
     }
 }
-
+    
 HashList::~HashList()
 {
     clear();
@@ -42,7 +42,7 @@ HashList::HashListBlock::HashListBlock()
                   "cache block size calculation incorrect");
 }
 
-esp_err_t HashList::insert(const Item& item, size_t index)
+void HashList::insert(const Item& item, size_t index)
 {
     const uint32_t hash_24 = item.calculateCrc32WithoutValue() & 0xffffff;
     // add entry to the end of last block if possible
@@ -50,41 +50,29 @@ esp_err_t HashList::insert(const Item& item, size_t index)
         auto& block = mBlockList.back();
         if (block.mCount < HashListBlock::ENTRY_COUNT) {
             block.mNodes[block.mCount++] = HashListNode(hash_24, index);
-            return ESP_OK;
+            return;
         }
     }
     // if the above failed, create a new block and add entry to it
-    HashListBlock* newBlock = new (std::nothrow) HashListBlock;
-
-    if (!newBlock) return ESP_ERR_NO_MEM;
-
+    HashListBlock* newBlock = new HashListBlock;
     mBlockList.push_back(newBlock);
     newBlock->mNodes[0] = HashListNode(hash_24, index);
     newBlock->mCount++;
-
-    return ESP_OK;
 }
 
-void HashList::erase(size_t index, bool itemShouldExist)
+void HashList::erase(size_t index)
 {
     for (auto it = mBlockList.begin(); it != mBlockList.end();) {
         bool haveEntries = false;
-        bool foundIndex = false;
         for (size_t i = 0; i < it->mCount; ++i) {
             if (it->mNodes[i].mIndex == index) {
                 it->mNodes[i].mIndex = 0xff;
-                foundIndex = true;
-                /* found the item and removed it */
+                return;
             }
             if (it->mNodes[i].mIndex != 0xff) {
                 haveEntries = true;
             }
-            if (haveEntries && foundIndex) {
-                /* item was found, and HashListBlock still has some items */
-                return;
-            }
         }
-        /* no items left in HashListBlock, can remove */
         if (!haveEntries) {
             auto tmp = it;
             ++it;
@@ -93,14 +81,8 @@ void HashList::erase(size_t index, bool itemShouldExist)
         } else {
             ++it;
         }
-        if (foundIndex) {
-            /* item was found and empty HashListBlock was removed */
-            return;
-        }
     }
-    if (itemShouldExist) {
-        assert(false && "item should have been present in cache");
-    }
+    assert(false && "item should have been present in cache");
 }
 
 size_t HashList::find(size_t start, const Item& item)

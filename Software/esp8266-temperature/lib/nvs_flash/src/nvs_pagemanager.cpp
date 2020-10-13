@@ -21,9 +21,7 @@ esp_err_t PageManager::load(uint32_t baseSector, uint32_t sectorCount)
     mPageCount = sectorCount;
     mPageList.clear();
     mFreePageList.clear();
-    mPages.reset(new (nothrow) Page[sectorCount]);
-
-    if (!mPages) return ESP_ERR_NO_MEM;
+    mPages.reset(new Page[sectorCount]);
 
     for (uint32_t i = 0; i < sectorCount; ++i) {
         auto err = mPages[i].load(baseSector + i);
@@ -51,7 +49,9 @@ esp_err_t PageManager::load(uint32_t baseSector, uint32_t sectorCount)
         return activatePage();
     } else {
         uint32_t lastSeqNo;
-        ESP_ERROR_CHECK( mPageList.back().getSeqNumber(lastSeqNo) );
+        if(esp_err_t err = mPageList.back().getSeqNumber(lastSeqNo) != ESP_OK) {
+            return err;
+        }
         mSeqNumber = lastSeqNo + 1;
     }
 
@@ -68,24 +68,9 @@ esp_err_t PageManager::load(uint32_t baseSector, uint32_t sectorCount)
 
     if (lastItemIndex != SIZE_MAX) {
         auto last = PageManager::TPageListIterator(&lastPage);
-        TPageListIterator it;
-
-        for (it = begin(); it != last; ++it) {
-
-            if ((it->state() != Page::PageState::FREEING) &&
-                    (it->eraseItem(item.nsIndex, item.datatype, item.key, item.chunkIndex) == ESP_OK)) {
+        for (auto it = begin(); it != last; ++it) {
+            if (it->eraseItem(item.nsIndex, item.datatype, item.key) == ESP_OK) {
                 break;
-            }
-        }
-        if ((it == last) && (item.datatype == ItemType::BLOB_IDX)) {
-            /* Rare case in which the blob was stored using old format, but power went just after writing
-             * blob index during modification. Loop again and delete the old version blob*/
-            for (it = begin(); it != last; ++it) {
-
-                if ((it->state() != Page::PageState::FREEING) &&
-                        (it->eraseItem(item.nsIndex, ItemType::BLOB, item.key, item.chunkIndex) == ESP_OK)) {
-                    break;
-                }
             }
         }
     }
@@ -94,26 +79,23 @@ esp_err_t PageManager::load(uint32_t baseSector, uint32_t sectorCount)
     for (auto it = begin(); it!= end(); ++it) {
         if (it->state() == Page::PageState::FREEING) {
             Page* newPage = &mPageList.back();
-            if (newPage->state() == Page::PageState::ACTIVE) {
-                auto err = newPage->erase();
+            if (newPage->state() != Page::PageState::ACTIVE) {
+                auto err = activatePage();
                 if (err != ESP_OK) {
                     return err;
                 }
-                mPageList.erase(newPage);
-                mFreePageList.push_back(newPage);
+                newPage = &mPageList.back();
             }
-            auto err = activatePage();
-            if (err != ESP_OK) {
-                return err;
-            }
-            newPage = &mPageList.back();
-
-            err = it->copyItems(*newPage);
-            if (err != ESP_OK && err != ESP_ERR_NVS_NOT_FOUND) {
-                return err;
+            while (true) {
+                auto err = it->moveItem(*newPage);
+                if (err == ESP_ERR_NVS_NOT_FOUND) {
+                    break;
+                } else if (err != ESP_OK) {
+                    return err;
+                }
             }
 
-            err = it->erase();
+            auto err = it->erase();
             if (err != ESP_OK) {
                 return err;
             }
@@ -129,7 +111,7 @@ esp_err_t PageManager::load(uint32_t baseSector, uint32_t sectorCount)
     if (mFreePageList.size() == 0) {
         return ESP_ERR_NVS_NO_FREE_PAGES;
     }
-
+    
     return ESP_OK;
 }
 
@@ -145,18 +127,17 @@ esp_err_t PageManager::requestNewPage()
     }
 
     // find the page with the higest number of erased items
-    TPageListIterator maxUnusedItemsPageIt;
-    size_t maxUnusedItems = 0;
+    TPageListIterator maxErasedItemsPageIt;
+    size_t maxErasedItems = 0;
     for (auto it = begin(); it != end(); ++it) {
-
-        auto unused =  Page::ENTRY_COUNT - it->getUsedEntryCount();
-        if (unused > maxUnusedItems) {
-            maxUnusedItemsPageIt = it;
-            maxUnusedItems = unused;
+        auto erased = it->getErasedEntryCount();
+        if (erased > maxErasedItems) {
+            maxErasedItemsPageIt = it;
+            maxErasedItems = erased;
         }
     }
 
-    if (maxUnusedItems == 0) {
+    if (maxErasedItems == 0) {
         return ESP_ERR_NVS_NOT_ENOUGH_SPACE;
     }
 
@@ -167,8 +148,7 @@ esp_err_t PageManager::requestNewPage()
 
     Page* newPage = &mPageList.back();
 
-    Page* erasedPage = maxUnusedItemsPageIt;
-
+    Page* erasedPage = maxErasedItemsPageIt;
 #ifndef NDEBUG
     size_t usedEntries = erasedPage->getUsedEntryCount();
 #endif
@@ -176,9 +156,13 @@ esp_err_t PageManager::requestNewPage()
     if (err != ESP_OK) {
         return err;
     }
-    err = erasedPage->copyItems(*newPage);
-    if (err != ESP_OK && err != ESP_ERR_NVS_NOT_FOUND) {
-        return err;
+    while (true) {
+        err = erasedPage->moveItem(*newPage);
+        if (err == ESP_ERR_NVS_NOT_FOUND) {
+            break;
+        } else if (err != ESP_OK) {
+            return err;
+        }
     }
 
     err = erasedPage->erase();
@@ -189,8 +173,8 @@ esp_err_t PageManager::requestNewPage()
 #ifndef NDEBUG
     assert(usedEntries == newPage->getUsedEntryCount());
 #endif
-
-    mPageList.erase(maxUnusedItemsPageIt);
+    
+    mPageList.erase(maxErasedItemsPageIt);
     mFreePageList.push_back(erasedPage);
 
     return ESP_OK;
@@ -213,28 +197,6 @@ esp_err_t PageManager::activatePage()
     p->setSeqNumber(mSeqNumber);
     ++mSeqNumber;
     return ESP_OK;
-}
-
-esp_err_t PageManager::fillStats(nvs_stats_t& nvsStats)
-{
-    nvsStats.used_entries      = 0;
-    nvsStats.free_entries      = 0;
-    nvsStats.total_entries     = 0;
-    esp_err_t err = ESP_OK;
-
-    // list of used pages
-    for (auto p = mPageList.begin(); p != mPageList.end(); ++p) {
-        err = p->calcEntries(nvsStats);
-        if (err != ESP_OK) {
-            return err;
-        }
-    }
-
-    // free pages
-    nvsStats.total_entries += mFreePageList.size() * Page::ENTRY_COUNT;
-    nvsStats.free_entries  += mFreePageList.size() * Page::ENTRY_COUNT;
-
-    return err;
 }
 
 } // namespace nvs
