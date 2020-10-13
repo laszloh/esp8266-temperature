@@ -1,12 +1,6 @@
 [submodule "PCB/_library"]
 	path = PCB/_library
 	url = https://github.com/laszloh/kicad_library.git
-[submodule "Software/esp8266-temperature/lib/eeprom_rotate"]
-	path = Software/esp8266-temperature/lib/eeprom_rotate
-	url = https://github.com/laszloh/eeprom_rotate
-[submodule "Software/esp8266-temperature/lib/-b"]
-	path = Software/esp8266-temperature/lib/-b
-	url = https://github.com/laszloh/WiFiManager.git
 [submodule "Software/esp8266-temperature/lib/WiFiManager"]
 	path = Software/esp8266-temperature/lib/WiFiManager
 	url = https://github.com/laszloh/WiFiManager.git
