@@ -60,6 +60,8 @@ bool setup_ap(settings_t &setting) {
     wm.addParameter(&param_mqtt_password);
     WiFiManagerParameter param_mqtt_topic("mtopic", "MQTT Topic", setting.data.mqtt_topic, MQTT_TOPIC_LEN-1);
     wm.addParameter(&param_mqtt_topic);
+    LongParameter param_sleep_time("sleeptime", "Sleep Time", setting.data.sleep_time);
+    wm.addParameter(&param_sleep_time);
 
     wm.setConfigPortalTimeout(SETUP_TIME_SEC);
     wm.setConnectTimeout(ESP_WIFI_TIMEOUT);
@@ -76,6 +78,7 @@ bool setup_ap(settings_t &setting) {
         memcpy(setting.data.mqtt_password, param_mqtt_password.getValue(), MQTT_PASSWORD_LEN);
         memcpy(setting.data.mqtt_topic, param_mqtt_topic.getValue(), MQTT_TOPIC_LEN);
         setting.data.mqtt_port = param_mqtt_port.getValue();
+        setting.data.sleep_time = param_sleep_time.getValue();
 
         memcpy(setting.data.wifi_ssid, wm.getWiFiSSID().c_str(), WIFI_SSID_LEN);
         memcpy(setting.data.wifi_pwd, wm.getWiFiPass().c_str(), WIFI_PWD_LEN);
@@ -86,6 +89,7 @@ bool setup_ap(settings_t &setting) {
         Log.verbose(F(LOG_AS "    MQTT Login: %s" CR), setting.data.mqtt_login);
         Log.verbose(F(LOG_AS "    MQTT Pass:  %s" CR), setting.data.mqtt_password);
         Log.verbose(F(LOG_AS "    MQTT Topic: %s" CR), setting.data.mqtt_topic);
+        Log.verbose(F(LOG_AS "    Sleep:      %d" CR), setting.data.sleep_time);
 
         if(saveConfig(setting))
             Log.notice(F(LOG_AS "Settings save: success" CR));

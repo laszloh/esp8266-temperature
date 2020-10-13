@@ -39,6 +39,15 @@
 
 static FastCRC32 crc32;
 
+Settings::settings_t def_setting = {
+    .data = {
+        .fingerprint = 0,
+        .mqtt_host = DEFAULT_MQTT_HOST,
+    }
+};
+
+
+
 static void printSettings(const settings_t &setting) {
     Log.verbose(F(LOG_AS "Flash Settings:" CR));
     Log.verbose(F(LOG_AS "    SSID:  %s" CR), setting.data.wifi_ssid);

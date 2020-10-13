@@ -42,6 +42,7 @@
 #define DEFAULT_MQTT_PORT   1883
 #define DEFAULT_MQTT_LOGIN  PRIVATE_MQTT_LOGIN
 #define DEFAULT_MQTT_PASS   PRIVATE_MQTT_PASS
+#define DEFAULT_MQTT_ID     "ESP%04X"
 
 #define DEFAULT_ESP_SLEEP   (30*60)
 
@@ -52,25 +53,45 @@
 #define MQTT_LOGIN_LEN 32
 #define MQTT_PASSWORD_LEN 32
 #define MQTT_TOPIC_LEN 64
+#define MQTT_ID_LEN 32
 
-typedef struct __packed {
-    uint32_t crc;
 
-    struct data_t {
-        uint32 fingerprint;
-        char wifi_ssid[WIFI_SSID_LEN];
-        char wifi_pwd[WIFI_PWD_LEN];
 
-        char mqtt_host[MQTT_HOST_LEN];
-        uint16_t mqtt_port;
-        char mqtt_login[MQTT_LOGIN_LEN];
-        char mqtt_password[MQTT_PASSWORD_LEN];
-        char mqtt_topic[MQTT_TOPIC_LEN];
-        uint32_t sleep_time;
-    } __packed data;
-} settings_t;
 
-bool loadConfig(settings_t &setting);
-bool saveConfig(const settings_t &setting);
+class Settings {
+public:
+    Settings &instance() {
+        static Settings instance;
+        return instance;
+    }
+
+    bool loadConfig(settings_t &setting);
+    bool saveConfig(const settings_t &setting);
+
+private:
+    typedef struct __packed {
+        uint32_t crc;
+
+        struct data_t {
+            uint32 fingerprint;
+            char wifi_ssid[WIFI_SSID_LEN];
+            char wifi_pwd[WIFI_PWD_LEN];
+
+            char mqtt_host[MQTT_HOST_LEN];
+            uint16_t mqtt_port;
+            char mqtt_login[MQTT_LOGIN_LEN];
+            char mqtt_password[MQTT_PASSWORD_LEN];
+            char mqtt_topic[MQTT_TOPIC_LEN];
+            char mqtt_id[MQTT_ID_LEN];
+            uint32_t sleep_time;
+        } __packed data;
+    } settings_t;
+
+    settings_t setting;
+
+    Settings() { }
+    Settings(const Settings&);
+    Settings& operator = (const Settings&);
+};
 
 #endif
