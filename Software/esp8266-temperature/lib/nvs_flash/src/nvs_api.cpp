@@ -27,7 +27,7 @@
 #include "esp_log.h"
 static const char* TAG = "nvs";
 #else
-//#include "crc.h"
+#include "crc.h"
 #define ESP_LOGD(...)
 #endif
 
@@ -136,7 +136,6 @@ extern "C" esp_err_t nvs_flash_init_partition_ptr(const esp_partition_t *partiti
                                  partition->size / SPI_FLASH_SEC_SIZE);
 }
 
-#ifdef ESP_PLATFORM
 extern "C" esp_err_t nvs_flash_init_partition(const char *part_name)
 {
     Lock::init();
@@ -228,7 +227,6 @@ extern "C" esp_err_t nvs_flash_erase(void)
 {
     return nvs_flash_erase_partition(NVS_DEFAULT_PART_NAME);
 }
-#endif // ESP_PLATFORM
 
 extern "C" esp_err_t nvs_flash_deinit_partition(const char* partition_name)
 {

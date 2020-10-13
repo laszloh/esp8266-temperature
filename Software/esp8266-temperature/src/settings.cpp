@@ -34,19 +34,13 @@
 
 #include "settings.h"
 
+#include "nvs_flash.h"
+#include "nvs.h"
+
 #define LOG_AS "[FLASH] "
 #define SETTINGS_REVISION 2
 
 static FastCRC32 crc32;
-
-Settings::settings_t def_setting = {
-    .data = {
-        .fingerprint = 0,
-        .mqtt_host = DEFAULT_MQTT_HOST,
-    }
-};
-
-
 
 static void printSettings(const settings_t &setting) {
     Log.verbose(F(LOG_AS "Flash Settings:" CR));
@@ -61,6 +55,7 @@ static void printSettings(const settings_t &setting) {
 }
 
 bool loadConfig(settings_t &setting) {
+#if 0
     EEPROM.begin(sizeof(settings_t));
     EEPROM.get(0, setting);
     EEPROM.end();
@@ -77,6 +72,58 @@ bool loadConfig(settings_t &setting) {
     }
     Log.notice(F(LOG_AS "Loading settings: OK" CR));
     printSettings(setting);
+    return true;
+#endif
+
+    noInterrupts();
+
+    Log.verbose(F(LOG_AS "Opening Non-Volatile Storage (NVS) handle... " CR));
+    esp_err_t err = nvs_flash_init();
+    if (err == ESP_ERR_NVS_NO_FREE_PAGES) {
+        // NVS partition was truncated and needs to be erased
+        // Retry nvs_flash_init
+        ESP_ERROR_CHECK(nvs_flash_erase());
+        err = nvs_flash_init();
+    }
+    ESP_ERROR_CHECK( err );
+
+    // Open
+    nvs_handle_t my_handle;
+    err = nvs_open("storage", NVS_READWRITE, &my_handle);
+    if (err != ESP_OK) {
+        Log.error(F(LOG_AS "Error (%X) opening NVS handle!" CR), err);
+    } else {
+        // Read
+        Log.verbose(F(LOG_AS "Reading restart counter from NVS ... " CR));
+        int32_t restart_counter = 0; // value will default to 0, if not set yet in NVS
+        err = nvs_get_i32(my_handle, "restart_counter", &restart_counter);
+        switch (err) {
+            case ESP_OK:
+                Log.verbose(F(LOG_AS "success!" CR));
+                Log.verbose(F(LOG_AS "Restart counter = %d" CR), restart_counter);
+                break;
+            case ESP_ERR_NVS_NOT_FOUND:
+                Log.verbose(F(LOG_AS"The value is not initialized yet!" CR));
+                break;
+            default :
+                Log.error(F(LOG_AS "Error (%X) reading!" CR), err);
+        }
+
+        // Write
+        restart_counter++;
+        err = nvs_set_i32(my_handle, "restart_counter", restart_counter);
+        Log.verbose(F(LOG_AS "Updating restart counter in NVS ... %s" CR), (err != ESP_OK) ? "Failed!" : "Done");
+
+        // Commit written value.
+        // After setting any values, nvs_commit() must be called to ensure changes are written
+        // to flash storage. Implementations may write to storage at other times,
+        // but this is not guaranteed.
+        err = nvs_commit(my_handle);
+        Log.verbose(F(LOG_AS "Committing updates in NVS ... %s" CR), (err != ESP_OK) ? "Failed!" : "Done");
+
+        // Close
+        nvs_close(my_handle);
+    }
     return true;
 }
 

@@ -56,6 +56,10 @@ typedef uint32_t nvs_handle_t;
 
 #define ESP_ERR_NVS_CONTENT_DIFFERS         (ESP_ERR_NVS_BASE + 0x18)  /*!< Internal error; never returned by nvs API functions.  NVS key is different in comparison */
 
+#define ESP_ERR_FLASH_BASE                  0x10010
+#define ESP_ERR_FLASH_OP_FAIL               (ESP_ERR_FLASH_BASE + 1)
+#define ESP_ERR_FLASH_OP_TIMEOUT            (ESP_ERR_FLASH_BASE + 2)
+
 #define NVS_DEFAULT_PART_NAME               "nvs"   /*!< Default partition name of the NVS partition in the partition table */
 
 #define NVS_PART_NAME_MAX_SIZE              16   /*!< maximum length of partition name (excluding null terminator) */

@@ -13,11 +13,6 @@
 // limitations under the License.
 #include "nvs_storage.hpp"
 
-#ifndef ESP_PLATFORM
-#include <map>
-#include <sstream>
-#endif
-
 namespace nvs
 {
 
@@ -136,9 +131,6 @@ esp_err_t Storage::init(uint32_t baseSector, uint32_t sectorCount)
     // Purge the blob index list
     blobIdxList.clearAndFreeNodes();
 
-#ifndef ESP_PLATFORM
-    debugCheck();
-#endif
     return ESP_OK;
 }
 
@@ -383,9 +375,6 @@ esp_err_t Storage::writeItem(uint8_t nsIndex, ItemType datatype, const char* key
             return err;
         }
     }
-#ifndef ESP_PLATFORM
-    debugCheck();
-#endif
     return ESP_OK;
 }
 
@@ -665,33 +654,6 @@ void Storage::debugDump()
         p->debugDump();
     }
 }
-
-#ifndef ESP_PLATFORM
-void Storage::debugCheck()
-{
-    std::map<std::string, Page*> keys;
-
-    for (auto p = mPageManager.begin(); p != mPageManager.end(); ++p) {
-        size_t itemIndex = 0;
-        size_t usedCount = 0;
-        Item item;
-        while (p->findItem(Page::NS_ANY, ItemType::ANY, nullptr, itemIndex, item) == ESP_OK) {
-            std::stringstream keyrepr;
-            keyrepr << static_cast<unsigned>(item.nsIndex) << "_" << static_cast<unsigned>(item.datatype) << "_" << item.key <<"_"<<static_cast<unsigned>(item.chunkIndex);
-            std::string keystr = keyrepr.str();
-            if (keys.find(keystr) != std::end(keys)) {
-                printf("Duplicate key: %s\n", keystr.c_str());
-                debugDump();
-                assert(0);
-            }
-            keys.insert(std::make_pair(keystr, static_cast<Page*>(p)));
-            itemIndex += item.span;
-            usedCount += item.span;
-        }
-        assert(usedCount == p->getUsedEntryCount());
-    }
-}
-#endif //ESP_PLATFORM
 
 esp_err_t Storage::fillStats(nvs_stats_t& nvsStats)
 {

@@ -56,19 +56,6 @@
 #define MQTT_ID_LEN 32
 
 
-
-
-class Settings {
-public:
-    Settings &instance() {
-        static Settings instance;
-        return instance;
-    }
-
-    bool loadConfig(settings_t &setting);
-    bool saveConfig(const settings_t &setting);
-
-private:
     typedef struct __packed {
         uint32_t crc;
 
@@ -87,11 +74,9 @@ private:
         } __packed data;
     } settings_t;
 
-    settings_t setting;
 
-    Settings() { }
-    Settings(const Settings&);
-    Settings& operator = (const Settings&);
-};
+
+    bool loadConfig(settings_t &setting);
+    bool saveConfig(const settings_t &setting);
 
 #endif

@@ -39,7 +39,7 @@ esp_err_t Page::load(uint32_t sectorNumber)
     mErasedEntryCount = 0;
 
     Header header;
-    auto rc = spi_flash_read(mBaseAddress, &header, sizeof(header));
+    auto rc = spi_flash_read(mBaseAddress, (uint32_t*)&header, sizeof(header));
     if (rc != ESP_OK) {
         mState = PageState::INVALID;
         return rc;
@@ -722,7 +722,7 @@ esp_err_t Page::initialize()
     header.mVersion = mVersion;
     header.mCrc32 = header.calculateCrc32();
 
-    auto rc = spi_flash_write(mBaseAddress, &header, sizeof(header));
+    auto rc = spi_flash_write(mBaseAddress, (uint32_t*)&header, sizeof(header));
     if (rc != ESP_OK) {
         mState = PageState::INVALID;
         return rc;

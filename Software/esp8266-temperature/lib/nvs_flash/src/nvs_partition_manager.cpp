@@ -27,7 +27,6 @@ NVSPartitionManager* NVSPartitionManager::get_instance()
     return instance;
 }
 
-#ifdef ESP_PLATFORM
 esp_err_t NVSPartitionManager::init_partition(const char *partition_label)
 {
     Storage* mStorage;
@@ -48,7 +47,6 @@ esp_err_t NVSPartitionManager::init_partition(const char *partition_label)
     return init_custom(partition_label, partition->address / SPI_FLASH_SEC_SIZE,
             partition->size / SPI_FLASH_SEC_SIZE);
 }
-#endif // ESP_PLATFORM
 
 esp_err_t NVSPartitionManager::init_custom(const char *partName, uint32_t baseSector, uint32_t sectorCount)
 {
@@ -75,7 +73,6 @@ esp_err_t NVSPartitionManager::init_custom(const char *partName, uint32_t baseSe
     return err;
 }
 
-#ifdef ESP_PLATFORM
 #ifdef CONFIG_NVS_ENCRYPTION
 esp_err_t NVSPartitionManager::secure_init_partition(const char *part_name, nvs_sec_cfg_t* cfg)
 {
@@ -109,7 +106,6 @@ esp_err_t NVSPartitionManager::secure_init_custom(const char *partName, uint32_t
     return init_custom(partName, baseSector, sectorCount);
 }
 #endif // CONFIG_NVS_ENCRYPTION
-#endif // ESP_PLATFORM
 
 esp_err_t NVSPartitionManager::deinit_partition(const char *partition_label)
 {
