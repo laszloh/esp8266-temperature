@@ -191,7 +191,7 @@ extern "C" esp_err_t nvs_erase_all(nvs_handle handle)
 }
 
 template<typename T>
-static esp_err_t nvs_set(nvs_handle handle, const char* key, T value)
+ esp_err_t nvs_set(nvs_handle handle, const char* key, T value)
 {
     Lock lock;
     ESP_LOGD(TAG, "%s %s %d %d", __func__, key, sizeof(T), (uint32_t) value);
@@ -280,7 +280,7 @@ extern "C" esp_err_t nvs_set_blob(nvs_handle handle, const char* key, const void
 
 
 template<typename T>
-static esp_err_t nvs_get(nvs_handle handle, const char* key, T* out_value)
+esp_err_t nvs_get(nvs_handle handle, const char* key, T* out_value)
 {
     Lock lock;
     ESP_LOGD(TAG, "%s %s %d", __func__, key, sizeof(T));

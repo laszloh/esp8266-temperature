@@ -19,16 +19,19 @@
 #include <stdbool.h>
 #include "esp_err.h"
 
+/**
+ * Opaque pointer type representing non-volatile storage handle
+ */
+typedef uint32_t nvs_handle;
+
+template<typename T> esp_err_t nvs_get(nvs_handle handle, const char* key, T* out_value);
+template<typename T> esp_err_t nvs_set(nvs_handle handle, const char* key, T value);
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 #define ESP_PLATFORM
-
-/**
- * Opaque pointer type representing non-volatile storage handle
- */
-typedef uint32_t nvs_handle;
 
 #define ESP_ERR_NVS_BASE                0x1100                     /*!< Starting number of error codes */
 #define ESP_ERR_NVS_NOT_INITIALIZED     (ESP_ERR_NVS_BASE + 0x01)  /*!< The storage driver is not initialized */

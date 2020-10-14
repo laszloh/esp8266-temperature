@@ -29,6 +29,7 @@
 #define _SETTINGS_H_
 
 #include "wifi.h"
+#include "nvs.h"
 
 #define SETUP_TIME_SEC  120
 #define ESP_WIFI_TIMEOUT 15000
@@ -78,5 +79,65 @@
 
     bool loadConfig(settings_t &setting);
     bool saveConfig(const settings_t &setting);
+
+class Settings {
+public:
+    static Settings& instance() {
+        static Settings instance;
+        return instance;
+    }
+
+    void commit();
+
+    nvs_handle getHandle() const {
+        return handle;
+    }
+
+    esp_err_t getLastError() const {
+        return lastError;
+    }
+
+    bool isOpened() const {
+        return opened;
+    }
+
+private:
+    Settings();
+    Settings(const Settings &);
+    Settings & operator = (const Settings&);
+
+    bool opened;
+    nvs_handle handle;
+    esp_err_t lastError;
+};
+
+template <typename T>
+class NvsValue {
+    T value;
+    Settings& s;
+    const char *name;
+
+public:
+    NvsValue(const T& _value, Settings& _s, const char *_name) 
+    : value(_value), s(s), name(_name) {
+        auto err = nvs_get(s.getHandle(), name, &value);
+        if(err == ESP_ERR_NVS_NOT_FOUND) {
+            // we failed to find the item, create it
+            nvs_set(s.getHandle(), name, value);
+        }
+    }
+
+    operator const T& () const {
+        return value;
+    }
+
+    // commit the variable to the backend
+    const T& operator = (const T& v) { 
+        value = v;
+        nvs_set(s.getHandle(), name, value);
+        s.commit();
+        return value; 
+    }
+};
 
 #endif

@@ -62,9 +62,48 @@ static void printSettings(const settings_t &setting) {
 }
 
 esp_err_t nvs_flash_erase_partition(const char *part_name) {
-    for(auto i = 0;i<sector_count;i++) {
-        spi_flash_erase_sector(sector_start + i);
+    for(uint32_t i = 0;i<sector_count;i++) {
+        auto err = spi_flash_erase_sector(sector_start + i);
+        if(err != ESP_OK)
+            return err;
     }
+    return ESP_OK;
+}
+
+Settings::Settings(): opened(false), handle(0) {
+    Log.verbose(F(LOG_AS "Opening Non-Volatile Storage (NVS) handle... " CR));
+    lastError = nvs_flash_init_custom("nvs", sector_start, sector_count);
+    if (lastError == ESP_ERR_NVS_NO_FREE_PAGES) {
+        // NVS partition was truncated and needs to be erased
+        // Retry nvs_flash_init
+        if(nvs_flash_erase()!=ESP_OK) {
+            Log.error(F(LOG_AS "Failed to format flash" CR));
+            return;
+        }
+        lastError = nvs_flash_init_custom("nvs", sector_start, sector_count);
+    }
+    if(lastError!=ESP_OK) {
+        Log.error(F(LOG_AS "Failed to init nvs region" CR));
+        return;
+    }
+    lastError = nvs_open("storage", NVS_READWRITE, &handle);
+    if (lastError != ESP_OK) {
+        Log.error(F(LOG_AS "Error (%X) opening NVS handle!" CR), lastError);
+    }
+    opened = (lastError == ESP_OK);
+}
+
+nvs_handle Settings::getHandle() {
+    if(!opened) {
+        Log.error(F(LOG_AS "nvs not opened!" CR));
+        Log.error(F(LOG_AS "Last Error: %X" CR), lastError);
+        return 0;
+    }
+    return handle;
+}
+
+void Settings::commit() {
+    nvs_commit(handle);
 }
 
 bool loadConfig(settings_t &setting) {
