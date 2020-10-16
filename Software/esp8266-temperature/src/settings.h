@@ -25,11 +25,9 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-#ifndef _SETTINGS_H_
-#define _SETTINGS_H_
+#pragma once
 
-#include "wifi.h"
-#include "nvs.h"
+#include "wifi_priv.h"
 
 #define SETUP_TIME_SEC  120
 #define ESP_WIFI_TIMEOUT 15000
@@ -57,41 +55,48 @@
 #define MQTT_ID_LEN 32
 
 
-    typedef struct __packed {
-        uint32_t crc;
+typedef struct __packed {
+    uint32_t crc;
 
-        struct data_t {
-            uint32 fingerprint;
-            char wifi_ssid[WIFI_SSID_LEN];
-            char wifi_pwd[WIFI_PWD_LEN];
+    struct data_t {
+        uint32 fingerprint;
+        char wifi_ssid[WIFI_SSID_LEN];
+        char wifi_pwd[WIFI_PWD_LEN];
 
-            char mqtt_host[MQTT_HOST_LEN];
-            uint16_t mqtt_port;
-            char mqtt_login[MQTT_LOGIN_LEN];
-            char mqtt_password[MQTT_PASSWORD_LEN];
-            char mqtt_topic[MQTT_TOPIC_LEN];
-            char mqtt_id[MQTT_ID_LEN];
-            uint32_t sleep_time;
-        } __packed data;
-    } settings_t;
+        char mqtt_host[MQTT_HOST_LEN];
+        uint16_t mqtt_port;
+        char mqtt_login[MQTT_LOGIN_LEN];
+        char mqtt_password[MQTT_PASSWORD_LEN];
+        char mqtt_topic[MQTT_TOPIC_LEN];
+        char mqtt_id[MQTT_ID_LEN];
+        uint32_t sleep_time;
+    } __packed data;
+} settings_t;
 
 
 
-    bool loadConfig(settings_t &setting);
-    bool saveConfig(const settings_t &setting);
+bool loadConfig(settings_t &setting);
+bool saveConfig(const settings_t &setting);
 
-class Settings {
-public:
-    static Settings& instance() {
-        static Settings instance;
-        return instance;
-    }
+#include "setup_ap.h"
+#include "nvs.h"
 
-    void commit();
+template <typename T>class NvsValue;
+
+class NvsSettings {
+    friend class NvsValue;
 
     nvs_handle getHandle() const {
         return handle;
     }
+
+public:
+    static NvsSettings& instance() {
+        static NvsSettings instance;
+        return instance;
+    }
+
+    void commit();
 
     esp_err_t getLastError() const {
         return lastError;
@@ -102,9 +107,9 @@ public:
     }
 
 private:
-    Settings();
-    Settings(const Settings &);
-    Settings & operator = (const Settings&);
+    NvsSettings();
+    NvsSettings(const NvsSettings &);
+    NvsSettings & operator = (const NvsSettings&);
 
     bool opened;
     nvs_handle handle;
@@ -114,30 +119,41 @@ private:
 template <typename T>
 class NvsValue {
     T value;
-    Settings& s;
+    NvsSettings& s;
     const char *name;
+    WiFiManagerParameter& param;
+    bool commitOnWrite;
 
 public:
-    NvsValue(const T& _value, Settings& _s, const char *_name) 
-    : value(_value), s(s), name(_name) {
+    NvsValue(const T& _value, NvsSettings& _s, const char *_name, WiFiManagerParameter &_param) 
+    : value(_value), s(s), name(_name), param(_param), commitOnWrite(false) {
         auto err = nvs_get(s.getHandle(), name, &value);
         if(err == ESP_ERR_NVS_NOT_FOUND) {
             // we failed to find the item, create it
-            nvs_set(s.getHandle(), name, value);
+            err = nvs_set(s.getHandle(), name, value);
+            if(err != ESP_OK)
+                return;
         }
+        wm.addParameter(&param);
     }
 
     operator const T& () const {
         return value;
     }
 
+    bool isCommitOnWrite() const {
+        return commitOnWrite;
+    }
+    void setCommitOnWrite(bool cow) {
+        commitOnWrite = cow;
+    }
+
     // commit the variable to the backend
     const T& operator = (const T& v) { 
         value = v;
         nvs_set(s.getHandle(), name, value);
-        s.commit();
+        if(commitOnWrite)
+            s.commit();
         return value; 
     }
 };
-
-#endif

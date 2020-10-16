@@ -35,7 +35,7 @@
 
 #define LOG_AS  "[AP] "
 
-static WiFiManager wm;
+WiFiManager wm;
 
 bool setup_ap(settings_t &setting) {
     bool result;

@@ -36,6 +36,7 @@
 #include "settings.h"
 #include "setup_ap.h"
 #include "mqtt_client.h"
+#include "wifi.h"
 
 #define LOG_AS  "[MAIN] "
 
@@ -48,6 +49,7 @@ static Adafruit_BME280 bme280;
 static Adafruit_BMP085 bmp180;
 static MqttClient& client = MqttClient::instace();
 static RtcMemory& rtc = RtcMemory::instance();
+static NvsSettings& nvs = NvsSettings::instance();
 
 static uint32_t boot_time;
 static float temp = NAN;
@@ -124,7 +126,7 @@ void setup() {
     }
 
     // load config from EEPROM
-    if(!loadConfig(sett) || forceConfig) {
+    if(!nvs.isOpened() || forceConfig) {
         // if we fail to load the settings, launch AP
         rtc.setReconfigure(false);
         rtc.WriteRtcMemory();

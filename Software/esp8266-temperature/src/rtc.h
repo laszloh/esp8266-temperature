@@ -25,8 +25,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-#ifndef _RTC_H_
-#define _RTC_H_H
+#pragma once
 
 class RtcMemory{
 public:
@@ -92,5 +91,3 @@ private:
 
     bool _valid;
 };
-
-#endif

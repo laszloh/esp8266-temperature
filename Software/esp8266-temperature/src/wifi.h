@@ -1,9 +1,9 @@
 /**
- * @file mqtt_client.h
+ * @file settings.h
  * @author Laszlo Hegedüs (laszlo.hegedues@gmail.com)
  * @brief 
  * @version 0.1
- * @date 2020-10-02
+ * @date 2020-09-30
  * 
  * \copyright Copyright (c) 2020 under the MIT License
  * 
@@ -27,31 +27,30 @@
  */
 #pragma once
 
-#include "settings.h"
+#include <Arduino.h>
+#include <ESP8266WiFi.h>
 
-class MqttClient {
+#include "rtc.h"
+#include "settings.h"
+#include "wifi_priv.h"
+
+class NvsSettings;
+
+class Wifi {
 public:
-    static MqttClient& instace() {
-        static MqttClient instace;
-        return instace;
+    static Wifi& instance() {
+        static Wifi instance;
+        return instance;
     }
 
-    void begin(const settings_t &sett);
-    bool connect(const uint32_t timeout=MQTT_TIMEOUT);
-
-    void sendMeasurement(float temperature, float humidity, float pressure);
-    void sendStatus(uint16_t voltage);
-    void loop();
 
 
 private:
-    MqttClient();
-    MqttClient(const MqttClient&);
-    MqttClient& operator = (const MqttClient&);
+    Wifi(): rtc(RtcMemory::instance()), settings(NvsSettings::instance()) {
+    }
+    Wifi(const Wifi &);
+    Wifi & operator = (const Wifi&);
 
-    settings_t setting;
-    char clientId[32];
-
-    int8_t getRssiQuality(const int32_t rssi) const;
-    static void callback(char* topic, uint8_t* payload, uint16_t length);
+    RtcMemory& rtc;
+    NvsSettings& settings;
 };

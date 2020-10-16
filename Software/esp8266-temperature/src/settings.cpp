@@ -70,7 +70,7 @@ esp_err_t nvs_flash_erase_partition(const char *part_name) {
     return ESP_OK;
 }
 
-Settings::Settings(): opened(false), handle(0) {
+NvsSettings::NvsSettings(): opened(false), handle(0) {
     Log.verbose(F(LOG_AS "Opening Non-Volatile Storage (NVS) handle... " CR));
     lastError = nvs_flash_init_custom("nvs", sector_start, sector_count);
     if (lastError == ESP_ERR_NVS_NO_FREE_PAGES) {
@@ -93,16 +93,7 @@ Settings::Settings(): opened(false), handle(0) {
     opened = (lastError == ESP_OK);
 }
 
-nvs_handle Settings::getHandle() {
-    if(!opened) {
-        Log.error(F(LOG_AS "nvs not opened!" CR));
-        Log.error(F(LOG_AS "Last Error: %X" CR), lastError);
-        return 0;
-    }
-    return handle;
-}
-
-void Settings::commit() {
+void NvsSettings::commit() {
     nvs_commit(handle);
 }
 

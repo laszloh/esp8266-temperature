@@ -25,13 +25,23 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-#ifndef _SETUP_AP_H_
-#define _SETUP_AP_H_
+#pragma once
 
 #include "settings.h"
 #include <WiFiManager.h>
 
+extern WiFiManager wm;
+
 bool setup_ap(settings_t &setting);
+
+class NvSParameter : public WiFiManagerParameter {
+    NvsValue<T>& value;
+
+public:
+    NvSParameter(NvsValue<T>& _value, const char *placeholder, long value, const uint8_t length = 10) : WiFiManagerParameter(""), value(_value) {
+
+    }
+};
 
 class LongParameter : public WiFiManagerParameter {
 public:
@@ -43,5 +53,3 @@ public:
         return String(WiFiManagerParameter::getValue()).toInt();
     }
 };
-
-#endif
