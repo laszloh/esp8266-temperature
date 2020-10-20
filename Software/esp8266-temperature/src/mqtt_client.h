@@ -67,7 +67,6 @@ private:
     MqttClient(const MqttClient&);
     MqttClient& operator = (const MqttClient&);
 
-
     struct Config {
         char host[MQTT_HOST_LEN];
         uint16_t port;

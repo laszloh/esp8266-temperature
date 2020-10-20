@@ -37,8 +37,9 @@
 #define WIFI_SSID_LEN 33
 #define WIFI_PWD_LEN 64
 
-#define DEFAULT_WIFI_SSID   PRIVATE_WIFI_SSID
-#define DEFAULT_WIFI_PASS   PRIVATE_WIFI_PASS
+#define DEFAULT_WIFI_SSID       PRIVATE_WIFI_SSID
+#define DEFAULT_WIFI_PASS       PRIVATE_WIFI_PASS
+#define DEFAULT_WIFI_TIMEOUT    15000
 
 class WiFiModule {
 public:
@@ -68,6 +69,27 @@ public:
         return (WiFi.status() != WL_CONNECTED);
     }
 
+    bool connect() {
+        uint32_t curMillis = millis();
+        Config c(config);
+
+        while(!isConnected()) {
+            if(millis() - curMillis > c.timeout) 
+                return false;
+            delay(10);
+        }
+        return true;
+    }
+
+    void configure(const char *_ssid = nullptr, const char *_pass = nullptr) {
+        Config c(config);
+        if(_ssid != nullptr)
+            strncpy(c.ssid, _ssid, sizeof(c.ssid));
+        if(_pass != nullptr)
+            strncpy(c.pwd, _pass, sizeof(c.pwd));
+        config = c;
+    }
+
 private:
     WiFiModule(): 
         rtc(RtcMemory::instance()), 
@@ -79,8 +101,10 @@ private:
     struct Config {
         char ssid[WIFI_SSID_LEN];
         char pwd[WIFI_PWD_LEN];
+        uint32_t timeout;
 
-        Config(const char *_ssid = DEFAULT_WIFI_SSID, const char *_pass = DEFAULT_WIFI_PASS) {
+        Config(const char *_ssid = DEFAULT_WIFI_SSID, const char *_pass = DEFAULT_WIFI_PASS, 
+                uint32_t _timeout = DEFAULT_WIFI_TIMEOUT) : timeout(_timeout) {
             strncpy(ssid, _ssid, sizeof(ssid));
             strncpy(pwd, _pass, sizeof(pwd));
         }

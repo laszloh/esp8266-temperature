@@ -112,7 +112,7 @@ public:
 private:
     NvsSettings();
     NvsSettings(const NvsSettings &);
-    NvsSettings & operator = (const NvsSettings&);
+    NvsSettings& operator = (const NvsSettings&);
 
     bool opened;
     nvs_handle handle;

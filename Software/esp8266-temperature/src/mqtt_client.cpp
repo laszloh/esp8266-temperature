@@ -34,6 +34,8 @@
 #include "mqtt_client.h"
 #include "rtc.h"
 #include "settings.h"
+#include "wifi.h"
+#include "main.h"
 
 #define LOG_AS "[MQTT] "
 
@@ -85,28 +87,20 @@ void MqttClient::callback(char* topic, uint8_t* payload, uint16_t length) {
         Log.verbose(F(LOG_AS "updating settings" CR));
         for (JsonPair kv : jsonDoc.as<JsonObject>()) {
             Log.verbose(F(LOG_AS "writing key: \"%s\" value: \"%s\"" CR), kv.key().c_str(), kv.value().as<char*>());
-            
+            // Wifi setup
+            WiFiModule::instance().configure(jsonDoc["wifi-ssid"], jsonDoc["wifi-pwd"]);
+            // MQTT
+            Config c(MqttClient::instace().config);
+            strncpy(c.host, jsonDoc["mqtt-host"] | DEFAULT_MQTT_HOST, sizeof(c.host));
+            c.port = jsonDoc["mqtt-port"] | DEFAULT_MQTT_PORT;
+            strncpy(c.login, jsonDoc["mqtt-login"] | DEFAULT_MQTT_LOGIN, sizeof(c.login));
+            strncpy(c.pass, jsonDoc["mqtt-pass"] | DEFAULT_MQTT_PASS, sizeof(c.pass));
+            strncpy(c.topic, jsonDoc["mqtt-topic"] | DEFAULT_MQTT_TOPIC, sizeof(c.topic));
+            strncpy(c.id, jsonDoc["mqtt-id"] | DEFAULT_MQTT_ID, sizeof(c.id));
+            MqttClient::instace().config = c;
+            // System
+            Main::instance().configure(jsonDoc["sleep-time"] | DEFAULT_SLEEP_TIME);
         }
-    }
-
-#if 0
-    settings_t sett = MqttClient::instace().setting;
-
-    // check if we have a new setup
-    if(jsonDoc["fingerprint"] > sett.data.fingerprint) {
-        reboot = true;
-        // we have a newer setting than we had before
-        sett.data.fingerprint = jsonDoc["fingerprint"];
-        strlcpy(sett.data.wifi_ssid, jsonDoc["wifi-ssid"] | DEFAULT_WIFI_SSID, sizeof(sett.data.wifi_ssid));
-        strlcpy(sett.data.wifi_pwd, jsonDoc["wifi-pwd"] | DEFAULT_WIFI_PASS, sizeof(sett.data.wifi_pwd));
-        strlcpy(sett.data.mqtt_host, jsonDoc["mqtt-host"] | DEFAULT_MQTT_HOST, sizeof(sett.data.mqtt_host));
-        sett.data.mqtt_port = jsonDoc["mqtt-port"] | DEFAULT_MQTT_PORT;
-        strlcpy(sett.data.mqtt_login, jsonDoc["mqtt-login"] | DEFAULT_MQTT_LOGIN, sizeof(sett.data.mqtt_login));
-        strlcpy(sett.data.mqtt_password, jsonDoc["mqtt-pass"] | DEFAULT_MQTT_PASS, sizeof(sett.data.mqtt_password));
-        strlcpy(sett.data.mqtt_topic, jsonDoc["mqtt-topic"] | DEFAULT_MQTT_TOPIC, sizeof(sett.data.mqtt_topic));
-        strlcpy(sett.data.mqtt_id, jsonDoc["mqtt-id"] | DEFAULT_MQTT_ID, sizeof(sett.data.mqtt_id));
-        sett.data.sleep_time = jsonDoc["sleep-time"] | DEFAULT_ESP_SLEEP;
-        saveConfig(sett);
     }
 
     if(reboot) {
@@ -114,7 +108,6 @@ void MqttClient::callback(char* topic, uint8_t* payload, uint16_t length) {
         Serial.flush();
         ESP.reset();
     }
-#endif
 }
 
 bool MqttClient::connect(const uint32_t timeout) {

@@ -37,21 +37,16 @@
 #include "setup_ap.h"
 #include "mqtt_client.h"
 #include "wifi.h"
+#include "main.h"
 
 #define LOG_AS  "[MAIN] "
-
-#define ESP_WIFI_TIMEOUT    15000
-
-static constexpr uint32_t timeout = ESP_WIFI_TIMEOUT;     //< wifi connect timeout
-uint32_t sleep_time = 15*60*1000*1000;                    //< deep sleep time in us
-
-constexpr const char *mqtt_server = "192.168.88.12";
 
 static Adafruit_BME280 bme280;
 static Adafruit_BMP085 bmp180;
 static MqttClient& client = MqttClient::instace();
 static RtcMemory& rtc = RtcMemory::instance();
 static NvsSettings& nvs = NvsSettings::instance();
+static Main& mainClass = Main::instance();
 
 static uint32_t boot_time;
 static float temp = NAN;
@@ -88,7 +83,7 @@ void enter_sleep(void) {
     rtc.WriteRtcMemory();
     Log.verbose(F(LOG_AS "Was awake for %l ms" CR), curTime);
     Serial.flush();
-    ESP.deepSleepInstant(sleep_time, WAKE_NO_RFCAL);
+    ESP.deepSleepInstant(mainClass.getSleepTime(), WAKE_NO_RFCAL);
     delay(10);
 }
 
@@ -138,9 +133,6 @@ void setup() {
         }
     }
 
-    // set the sleep timer (converting von s to us)
-    sleep_time = 30 * 1000 * 1000;    
-
     // boot up the wifi to send the data
     WiFiModule::instance().begin();
 
@@ -169,17 +161,13 @@ void setup() {
         enter_sleep();
     }
 
-    uint32_t cur_ms = millis();
-    while (!WiFiModule::instance().isConnected()) {
-        if(millis() - cur_ms > timeout) {
-            Log.error(F(LOG_AS "Could not connect to WiFi..." CR));
-            curTime = millis()-boot_time;
-            Log.error(F(LOG_AS "Giving up at %l ms" CR), curTime);
-            Log.error(F(LOG_AS "resetting rtc and going to forced sleep..." CR));
-            rtc.InvalidiateRtcMemory();
-            enter_sleep();
-        }
-        delay(10);
+    if(!WiFiModule::instance().connect()) {
+        Log.error(F(LOG_AS "Could not connect to WiFi..." CR));
+        curTime = millis()-boot_time;
+        Log.error(F(LOG_AS "Giving up at %l ms" CR), curTime);
+        Log.error(F(LOG_AS "resetting rtc and going to forced sleep..." CR));
+        rtc.InvalidiateRtcMemory();
+        enter_sleep();
     }
     curTime = millis()-boot_time;
     Log.verbose(F(LOG_AS "Connect at %l ms" CR), curTime);
