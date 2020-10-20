@@ -32,16 +32,7 @@
 
 extern WiFiManager wm;
 
-bool setup_ap(settings_t &setting);
-
-class NvSParameter : public WiFiManagerParameter {
-    NvsValue<T>& value;
-
-public:
-    NvSParameter(NvsValue<T>& _value, const char *placeholder, long value, const uint8_t length = 10) : WiFiManagerParameter(""), value(_value) {
-
-    }
-};
+bool setup_ap();
 
 class LongParameter : public WiFiManagerParameter {
 public:

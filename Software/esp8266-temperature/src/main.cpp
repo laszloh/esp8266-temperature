@@ -40,6 +40,8 @@
 
 #define LOG_AS  "[MAIN] "
 
+#define ESP_WIFI_TIMEOUT    15000
+
 static constexpr uint32_t timeout = ESP_WIFI_TIMEOUT;     //< wifi connect timeout
 uint32_t sleep_time = 15*60*1000*1000;                    //< deep sleep time in us
 
@@ -93,7 +95,6 @@ void enter_sleep(void) {
 void setup() {
     bool forceConfig = false;
     uint16_t curTime;
-    settings_t sett;
 
     system_update_cpu_freq(160);
     randomSeed(analogRead(0));
@@ -130,7 +131,7 @@ void setup() {
         // if we fail to load the settings, launch AP
         rtc.setReconfigure(false);
         rtc.WriteRtcMemory();
-        if(!setup_ap(sett)) {
+        if(!setup_ap()) {
             // setup AP timed out
             Log.error(F(LOG_AS "Setup AP timed out. Going to forced sleep."));
             enter_sleep();
@@ -138,22 +139,10 @@ void setup() {
     }
 
     // set the sleep timer (converting von s to us)
-    sleep_time = sett.data.sleep_time * 1000 * 1000;    
+    sleep_time = 30 * 1000 * 1000;    
 
     // boot up the wifi to send the data
-    if(rtc.isRtcValid()) {
-        Log.notice(F(LOG_AS "RTC config: found" CR));
-        WiFi.forceSleepWake();
-        WiFi.config(rtc.getIp(), rtc.getGateway(), rtc.getMask(), rtc.getDns());
-        uint8_t bssid[6];
-        rtc.getBssid(bssid);
-        WiFi.begin(sett.data.wifi_ssid, sett.data.wifi_pwd, rtc.getChannel(), bssid);
-    } else {
-        // no data in rtc, normal startup
-        Log.notice(F(LOG_AS "RTC config: NOT found" CR));
-        WiFi.forceSleepWake();
-        WiFi.begin(sett.data.wifi_ssid, sett.data.wifi_pwd);
-    }
+    WiFiModule::instance().begin();
 
     // boot up the BME280
     if(bme280.begin(BME280_ADDRESS_ALTERNATE)) {
@@ -181,7 +170,7 @@ void setup() {
     }
 
     uint32_t cur_ms = millis();
-    while (WiFi.status() != WL_CONNECTED) {
+    while (!WiFiModule::instance().isConnected()) {
         if(millis() - cur_ms > timeout) {
             Log.error(F(LOG_AS "Could not connect to WiFi..." CR));
             curTime = millis()-boot_time;
@@ -207,7 +196,7 @@ void setup() {
     rtc.WriteRtcMemory();
 
     // Start the MQTT party
-    client.begin(sett);
+    client.begin();
     if(!client.connect())
         enter_sleep();
 }

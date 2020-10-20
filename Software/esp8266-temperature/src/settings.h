@@ -27,6 +27,8 @@
  */
 #pragma once
 
+#if 0
+
 #include "wifi_priv.h"
 
 #define SETUP_TIME_SEC  120
@@ -78,32 +80,33 @@ typedef struct __packed {
 bool loadConfig(settings_t &setting);
 bool saveConfig(const settings_t &setting);
 
+#endif
+
 #include "setup_ap.h"
 #include "nvs.h"
 
-template <typename T>class NvsValue;
-
 class NvsSettings {
-    friend class NvsValue;
-
-    nvs_handle getHandle() const {
-        return handle;
-    }
-
 public:
     static NvsSettings& instance() {
         static NvsSettings instance;
         return instance;
     }
 
-    void commit();
+    bool open(const char *name, void *ptr, size_t dataSize);
+    void save(const char *name, const void *ptr, size_t dataSize);
 
     esp_err_t getLastError() const {
         return lastError;
     }
 
+    uint32_t getFingerprint();
+
     bool isOpened() const {
         return opened;
+    }
+
+    nvs_handle getHandle() const {
+        return handle;
     }
 
 private:
@@ -120,40 +123,22 @@ template <typename T>
 class NvsValue {
     T value;
     NvsSettings& s;
-    const char *name;
-    WiFiManagerParameter& param;
-    bool commitOnWrite;
+    const char *id;
 
 public:
-    NvsValue(const T& _value, NvsSettings& _s, const char *_name, WiFiManagerParameter &_param) 
-    : value(_value), s(s), name(_name), param(_param), commitOnWrite(false) {
-        auto err = nvs_get(s.getHandle(), name, &value);
-        if(err == ESP_ERR_NVS_NOT_FOUND) {
-            // we failed to find the item, create it
-            err = nvs_set(s.getHandle(), name, value);
-            if(err != ESP_OK)
-                return;
-        }
-        wm.addParameter(&param);
+    NvsValue(const T& _value, NvsSettings& _s, const char *_id) 
+    : value(_value), s(s), id(_id) {
+        s.open(id, &value, sizeof(value));
     }
 
     operator const T& () const {
         return value;
     }
 
-    bool isCommitOnWrite() const {
-        return commitOnWrite;
-    }
-    void setCommitOnWrite(bool cow) {
-        commitOnWrite = cow;
-    }
-
     // commit the variable to the backend
     const T& operator = (const T& v) { 
         value = v;
-        nvs_set(s.getHandle(), name, value);
-        if(commitOnWrite)
-            s.commit();
+        s.save(id, &value, sizeof(value));
         return value; 
     }
 };

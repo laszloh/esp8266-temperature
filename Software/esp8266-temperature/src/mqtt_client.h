@@ -28,6 +28,24 @@
 #pragma once
 
 #include "settings.h"
+#include "rtc.h"
+
+#include "wifi_priv.h"
+
+#define MQTT_HOST_LEN 64
+#define MQTT_LOGIN_LEN 32
+#define MQTT_PASSWORD_LEN 32
+#define MQTT_TOPIC_LEN 64
+#define MQTT_ID_LEN 32
+
+#define DEFAULT_MQTT_HOST   "192.168.88.12"
+#define DEFAULT_MQTT_TOPIC  "revai/sensors/{i}/{t}"
+#define DEFAULT_MQTT_PORT   1883
+#define DEFAULT_MQTT_LOGIN  PRIVATE_MQTT_LOGIN
+#define DEFAULT_MQTT_PASS   PRIVATE_MQTT_PASS
+#define DEFAULT_MQTT_ID     "ESP{m}"
+
+#define MQTT_TIMEOUT        2000
 
 class MqttClient {
 public:
@@ -36,7 +54,7 @@ public:
         return instace;
     }
 
-    void begin(const settings_t &sett);
+    void begin();
     bool connect(const uint32_t timeout=MQTT_TIMEOUT);
 
     void sendMeasurement(float temperature, float humidity, float pressure);
@@ -49,7 +67,29 @@ private:
     MqttClient(const MqttClient&);
     MqttClient& operator = (const MqttClient&);
 
-    settings_t setting;
+
+    struct Config {
+        char host[MQTT_HOST_LEN];
+        uint16_t port;
+        char login[MQTT_LOGIN_LEN];
+        char pass[MQTT_PASSWORD_LEN];
+        char topic[MQTT_TOPIC_LEN];
+        char id[MQTT_ID_LEN];
+
+        Config(const char *_host = DEFAULT_MQTT_HOST, uint16_t _port = DEFAULT_MQTT_PORT, const char *_login = DEFAULT_MQTT_LOGIN, 
+                const char *_pass = DEFAULT_MQTT_PASS, const char *_topic = DEFAULT_MQTT_TOPIC, const char *_id = DEFAULT_MQTT_ID): port(_port) {
+            strncpy(host, _host, sizeof(host));
+            strncpy(login, _login, sizeof(login));
+            strncpy(pass, _pass, sizeof(pass));
+            strncpy(topic, _topic, sizeof(topic));
+            strncpy(id, _id, sizeof(id));
+        }
+    };
+
+    RtcMemory& rtc;
+    NvsSettings& settings;
+    NvsValue<Config> config;
+
     char clientId[32];
 
     int8_t getRssiQuality(const int32_t rssi) const;

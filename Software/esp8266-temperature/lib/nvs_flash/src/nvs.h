@@ -24,9 +24,6 @@
  */
 typedef uint32_t nvs_handle;
 
-template<typename T> esp_err_t nvs_get(nvs_handle handle, const char* key, T* out_value);
-template<typename T> esp_err_t nvs_set(nvs_handle handle, const char* key, T value);
-
 #ifdef __cplusplus
 extern "C" {
 #endif

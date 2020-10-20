@@ -37,13 +37,14 @@
 
 WiFiManager wm;
 
-bool setup_ap(settings_t &setting) {
+bool setup_ap() {
     bool result;
 
 #ifndef DISABLE_LOGGING
     wm.debugPlatformInfo();
 #endif
 
+#if 0
     Log.notice(F(LOG_AS "Entering captive portal" CR));
 
     std::vector<const char*> menu = {"wifi","info","param","update","sep","restart","exit"};
@@ -100,4 +101,6 @@ bool setup_ap(settings_t &setting) {
         ESP.reset();
     }
     return result;
+
+#endif
 }

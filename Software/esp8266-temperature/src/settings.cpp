@@ -27,39 +27,18 @@
  */
 
 #include <Arduino.h>
-
 #include <ArduinoLog.h>
-#include <FastCRC.h>
-#include <EEPROM.h>
 
 #include "settings.h"
-
 #include "nvs_flash.h"
-#include "nvs.h"
-#include "user_interface.h"
 
 #define LOG_AS "[FLASH] "
-#define SETTINGS_REVISION 2
-
-static FastCRC32 crc32;
 
 extern "C" uint32_t _FS_start;
 extern "C" uint32_t _FS_end;
 
 static const uint32_t sector_start = ((uint32_t)&_FS_start - 0x40200000) / SPI_FLASH_SEC_SIZE;
 static const uint32_t sector_count = (((uint32_t)&_FS_end - 0x40200000) / SPI_FLASH_SEC_SIZE) - sector_start;
-
-static void printSettings(const settings_t &setting) {
-    Log.verbose(F(LOG_AS "Flash Settings:" CR));
-    Log.verbose(F(LOG_AS "    SSID:  %s" CR), setting.data.wifi_ssid);
-    Log.verbose(F(LOG_AS "    PWD:   %s" CR), setting.data.wifi_pwd);
-    Log.verbose(F(LOG_AS "    Host:  %s" CR), setting.data.mqtt_host);
-    Log.verbose(F(LOG_AS "    Port:  %d" CR), setting.data.mqtt_port);
-    Log.verbose(F(LOG_AS "    Login: %s" CR), setting.data.mqtt_login);
-    Log.verbose(F(LOG_AS "    Pass:  %s" CR), setting.data.mqtt_password);
-    Log.verbose(F(LOG_AS "    Topic: %s" CR), setting.data.mqtt_topic);
-    Log.verbose(F(LOG_AS "    Sleep: %d" CR), setting.data.sleep_time);
-}
 
 esp_err_t nvs_flash_erase_partition(const char *part_name) {
     for(uint32_t i = 0;i<sector_count;i++) {
@@ -93,12 +72,57 @@ NvsSettings::NvsSettings(): opened(false), handle(0) {
     opened = (lastError == ESP_OK);
 }
 
-void NvsSettings::commit() {
-    nvs_commit(handle);
+bool NvsSettings::open(const char *name, void *ptr, size_t dataSize) {
+    if(dataSize <= 8) {
+        // we can load the data as a primitive
+        uint64_t data;
+        lastError = nvs_get_u64(handle, name, &data);
+        if(lastError != ESP_OK)
+            return false;
+        memcpy(ptr, &data, dataSize);
+    } else {
+        // we saved it as a blob
+        size_t size = dataSize;
+        lastError = nvs_get_blob(handle, name, ptr, &size);
+    }
+    return (lastError == ESP_OK);
+}
+
+void NvsSettings::save(const char *name, const void *ptr, size_t dataSize) {
+    if(dataSize <= 8) {
+        // save it as a primitive
+        uint64_t data;
+        memcpy(&data, ptr, dataSize);
+        lastError = nvs_set_u64(handle, name, data);
+    } else {
+        // save it as a blob
+        lastError = nvs_set_blob(handle, name, ptr, dataSize);
+    }
+}
+
+uint32_t NvsSettings::getFingerprint() {
+    uint32_t fp = 0;
+    esp_err_t err = nvs_get_u32(handle, "sett-print", &fp);
+    if(err == ESP_ERR_NVS_NOT_FOUND) {
+        nvs_set_u32(handle, "sett-print", fp);
+    }
+    return fp;
+}
+
+#if 0
+static void printSettings(const settings_t &setting) {
+    Log.verbose(F(LOG_AS "Flash Settings:" CR));
+    Log.verbose(F(LOG_AS "    SSID:  %s" CR), setting.data.wifi_ssid);
+    Log.verbose(F(LOG_AS "    PWD:   %s" CR), setting.data.wifi_pwd);
+    Log.verbose(F(LOG_AS "    Host:  %s" CR), setting.data.mqtt_host);
+    Log.verbose(F(LOG_AS "    Port:  %d" CR), setting.data.mqtt_port);
+    Log.verbose(F(LOG_AS "    Login: %s" CR), setting.data.mqtt_login);
+    Log.verbose(F(LOG_AS "    Pass:  %s" CR), setting.data.mqtt_password);
+    Log.verbose(F(LOG_AS "    Topic: %s" CR), setting.data.mqtt_topic);
+    Log.verbose(F(LOG_AS "    Sleep: %d" CR), setting.data.sleep_time);
 }
 
 bool loadConfig(settings_t &setting) {
-#if 0
     EEPROM.begin(sizeof(settings_t));
     EEPROM.get(0, setting);
     EEPROM.end();
@@ -116,7 +140,6 @@ bool loadConfig(settings_t &setting) {
     Log.notice(F(LOG_AS "Loading settings: OK" CR));
     printSettings(setting);
     return true;
-#endif
 
     noInterrupts();
 
@@ -194,3 +217,4 @@ bool saveConfig(const settings_t &setting) {
 
     return ret;
 }
+#endif

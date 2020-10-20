@@ -41,34 +41,56 @@ static WiFiClient wifiClient;
 static PubSubClient mqtt(wifiClient);
 static RtcMemory& rtc = RtcMemory::instance();
 
-MqttClient::MqttClient(){
+#define PH_MAC  "{m}"
+#define PH_ID   "{i}"
+#define PH_TYPE "{t}"
+
+MqttClient::MqttClient() : 
+    rtc(RtcMemory::instance()), 
+    settings(NvsSettings::instance()), 
+    config(Config(), settings, "mqtt") 
+{
+    Config c(config);
+    String id = c.id;
+    id.replace(F(PH_MAC), String(ESP.getChipId(), 16));
+    strncpy(clientId, id.c_str(), sizeof(clientId));
 }
 
-void MqttClient::begin(const settings_t &sett) {
+void MqttClient::begin() {
     IPAddress mqttIp;
-    setting = sett;
-
-    snprintf(clientId, sizeof(clientId)-1, setting.data.mqtt_id, ESP.getChipId());
-    Log.verbose(F(LOG_AS "Client id: %s" CR), clientId);
+    Config c(config);
 
     wifiClient.setNoDelay(true);
     if(rtc.isRtcValid())
         mqttIp = rtc.getMqttServerIp();
 
     if(mqttIp.isSet())
-        mqtt.setServer(mqttIp, setting.data.mqtt_port);
+        mqtt.setServer(mqttIp, c.port);
     else
-        mqtt.setServer(setting.data.mqtt_host, setting.data.mqtt_port);
+        mqtt.setServer(c.host, c.port);
     mqtt.setSocketTimeout(1);
 }
 
 void MqttClient::callback(char* topic, uint8_t* payload, uint16_t length) {
     bool reboot = false;
+    NvsSettings& settings = NvsSettings::instance();
+    uint32_t fingerprint = settings.getFingerprint();
     StaticJsonDocument<200> jsonDoc;
-    deserializeJson(jsonDoc, payload, length);
-    settings_t sett = MqttClient::instace().setting;
     Log.verbose(F(LOG_AS "Got a new setup topic" CR));
-    Log.verbose(F(LOG_AS "topic-fingerprint: %d our fingerprint: %d" CR), jsonDoc["fingerprint"].as<int>(), sett.data.fingerprint);
+
+    deserializeJson(jsonDoc, payload, length);
+    Log.verbose(F(LOG_AS "topic-fingerprint: %d our fingerprint: %d" CR), jsonDoc["fingerprint"].as<int>(), fingerprint);
+
+    if(fingerprint < jsonDoc["fingerprint"]) {
+        Log.verbose(F(LOG_AS "updating settings" CR));
+        for (JsonPair kv : jsonDoc.as<JsonObject>()) {
+            Log.verbose(F(LOG_AS "writing key: \"%s\" value: \"%s\"" CR), kv.key().c_str(), kv.value().as<char*>());
+            
+        }
+    }
+
+#if 0
+    settings_t sett = MqttClient::instace().setting;
 
     // check if we have a new setup
     if(jsonDoc["fingerprint"] > sett.data.fingerprint) {
@@ -92,14 +114,15 @@ void MqttClient::callback(char* topic, uint8_t* payload, uint16_t length) {
         Serial.flush();
         ESP.reset();
     }
+#endif
 }
 
 bool MqttClient::connect(const uint32_t timeout) {
     uint32_t start_ms = millis();
-    char setup_topic[128];
+    Config c(config);
 
     while(!mqtt.connected()) {
-        mqtt.connect(clientId, setting.data.mqtt_login, setting.data.mqtt_password, 0, 0, 0, 0, false);
+        mqtt.connect(clientId, c.login, c.pass, 0, 0, 0, 0, false);
         if((millis() - start_ms) > timeout) {
             Log.error(F(LOG_AS "Connection timed out at %l ms" CR), millis());
             return false;
@@ -107,10 +130,16 @@ bool MqttClient::connect(const uint32_t timeout) {
     }
     mqtt.setCallback(callback);
     mqtt.setBufferSize(1024);
-    snprintf(setup_topic, sizeof(setup_topic), setting.data.mqtt_topic, clientId, "setup");
-    mqtt.subscribe(setup_topic);
-    snprintf(setup_topic, sizeof(setup_topic), setting.data.mqtt_topic, "all", "setup");
-    mqtt.subscribe(setup_topic);
+
+    String topic = c.topic;
+    topic.replace(F(PH_ID), clientId);
+    topic.replace(F(PH_TYPE), F("setup"));
+    mqtt.subscribe(topic.c_str());
+
+    topic = c.topic;
+    topic.replace(F(PH_ID), F("all"));
+    topic.replace(F(PH_TYPE), F("setup"));
+    mqtt.subscribe(topic.c_str());
 
     return true;
 }
@@ -120,7 +149,8 @@ void MqttClient::loop() {
 }
 
 void MqttClient::sendMeasurement(float temperature, float humidity, float pressure) {
-    char topic[64];
+    Config c(config);
+    String topic = c.topic;
     char message[512];
     DynamicJsonDocument jsonDoc(1024);
 
@@ -129,21 +159,25 @@ void MqttClient::sendMeasurement(float temperature, float humidity, float pressu
     jsonDoc["pressure"] = pressure;
 
     size_t n = serializeJson(jsonDoc, message);
-    snprintf(topic, sizeof(topic), setting.data.mqtt_topic, clientId, "measurement");
-    Log.verbose(F(LOG_AS "Topic:   %s" CR), topic);
+
+    topic.replace(F(PH_ID), clientId);
+    topic.replace(F(PH_TYPE), F("measurement"));
+
+    Log.verbose(F(LOG_AS "Topic:   %s" CR), topic.c_str());
     Log.verbose(F(LOG_AS "Message: %s" CR), message);
-    mqtt.publish(topic, message, n);
+    mqtt.publish(topic.c_str(), message, n);
 }
 
 void MqttClient::sendStatus(uint16_t voltage) {
-    char topic[64];
+    Config c(config);
+    String topic = c.topic;
     char message[512];
     DynamicJsonDocument doc(1024);
     int32_t rssi = WiFi.RSSI();
 
     doc["wakeTime"] = rtc.getLastWakeDuration();;
     doc["Voltage"] = voltage;
-    doc["fingerprint"] = setting.data.fingerprint;
+    doc["fingerprint"] = settings.getFingerprint();
 
     JsonObject Memory = doc.createNestedObject(F("Memory"));
     Memory["StackFree"] = ESP.getFreeContStack();
@@ -157,10 +191,13 @@ void MqttClient::sendStatus(uint16_t voltage) {
     wifi["Signal"] = rssi;
 
     size_t n = serializeJson(doc, message);
-    snprintf(topic, sizeof(topic), setting.data.mqtt_topic, clientId, "status");
-    Log.verbose(F(LOG_AS "Topic:   %s" CR), topic);
+
+    topic.replace(F(PH_ID), clientId);
+    topic.replace(F(PH_TYPE), F("status"));
+
+    Log.verbose(F(LOG_AS "Topic:   %s" CR), topic.c_str());
     Log.verbose(F(LOG_AS "Message: %s" CR), message);
-    mqtt.publish(topic, message, n);
+    mqtt.publish(topic.c_str(), message, n);
 }
 
 int8_t MqttClient::getRssiQuality(const int32_t rssi) const{
