@@ -5,7 +5,7 @@
  * @version 0.1
  * @date 2020-10-01
  * 
- * \copyright Copyright (c) 2020 under the MIT License
+ * @copyright Copyright (c) 2020 under the MIT License
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal

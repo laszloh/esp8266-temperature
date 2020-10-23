@@ -5,7 +5,7 @@
  * @version 0.1
  * @date 2020-10-02
  * 
- * \copyright Copyright (c) 2020 under the MIT License
+ * @copyright Copyright (c) 2020 under the MIT License
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -91,15 +91,21 @@ void MqttClient::callback(char* topic, uint8_t* payload, uint16_t length) {
             WiFiModule::instance().configure(jsonDoc["wifi-ssid"], jsonDoc["wifi-pwd"]);
             // MQTT
             Config c(MqttClient::instace().config);
-            strncpy(c.host, jsonDoc["mqtt-host"] | DEFAULT_MQTT_HOST, sizeof(c.host));
-            c.port = jsonDoc["mqtt-port"] | DEFAULT_MQTT_PORT;
-            strncpy(c.login, jsonDoc["mqtt-login"] | DEFAULT_MQTT_LOGIN, sizeof(c.login));
-            strncpy(c.pass, jsonDoc["mqtt-pass"] | DEFAULT_MQTT_PASS, sizeof(c.pass));
-            strncpy(c.topic, jsonDoc["mqtt-topic"] | DEFAULT_MQTT_TOPIC, sizeof(c.topic));
-            strncpy(c.id, jsonDoc["mqtt-id"] | DEFAULT_MQTT_ID, sizeof(c.id));
+            if(!jsonDoc["mqtt-host"].isNull())
+                strncpy(c.host, jsonDoc["mqtt-host"], sizeof(c.host));
+            if(!jsonDoc["mqtt-port"].isNull())
+                c.port = jsonDoc["mqtt-port"];
+            if(!jsonDoc["mqtt-login"].isNull())
+                strncpy(c.login, jsonDoc["mqtt-login"], sizeof(c.login));
+            if(!jsonDoc["mqtt-pass"].isNull())
+                strncpy(c.pass, jsonDoc["mqtt-pass"], sizeof(c.pass));
+            if(!jsonDoc["mqtt-topic"].isNull())
+                strncpy(c.topic, jsonDoc["mqtt-topic"], sizeof(c.topic));
+            if(!jsonDoc["mqtt-id"].isNull())
+                strncpy(c.id, jsonDoc["mqtt-id"], sizeof(c.id));
             MqttClient::instace().config = c;
             // System
-            Main::instance().configure(jsonDoc["sleep-time"] | DEFAULT_SLEEP_TIME);
+            Main::instance().configure(jsonDoc["sleep-time"]);
         }
     }
 

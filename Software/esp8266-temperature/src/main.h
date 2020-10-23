@@ -5,7 +5,7 @@
  * @version 0.1
  * @date 2020-10-20
  * 
- * \copyright Copyright (c) 2020 under the MIT License
+ * @copyright Copyright (c) 2020 under the MIT License
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -48,7 +48,8 @@ public:
 
     void configure(uint32_t sleepTime) {
         Config c(config);
-        c.sleepTime = sleepTime *60 * 1000 * 1000;
+        if(sleepTime != 0)
+            c.sleepTime = sleepTime * 60 * 1000 * 1000;
         config = c;
     }
 
