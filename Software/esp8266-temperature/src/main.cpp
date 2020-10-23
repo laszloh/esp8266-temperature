@@ -89,7 +89,6 @@ void enter_sleep(void) {
 
 void setup() {
     bool forceConfig = false;
-    uint16_t curTime;
 
     system_update_cpu_freq(160);
     randomSeed(analogRead(0));
@@ -120,6 +119,10 @@ void setup() {
             rtc.WriteRtcMemory();
         }
     }
+	
+	// let everybody load their config
+	forceConfig |= !WifiModule::instace().config();
+	forceConfig |= !MqttClient::instace().config();
 
     // load config from EEPROM
     if(!nvs.isOpened() || forceConfig) {
@@ -163,14 +166,12 @@ void setup() {
 
     if(!WiFiModule::instance().connect()) {
         Log.error(F(LOG_AS "Could not connect to WiFi..." CR));
-        curTime = millis()-boot_time;
-        Log.error(F(LOG_AS "Giving up at %l ms" CR), curTime);
+        Log.error(F(LOG_AS "Giving up at %l ms" CR), (uint16_t)(millis()-boot_time));
         Log.error(F(LOG_AS "resetting rtc and going to forced sleep..." CR));
         rtc.InvalidiateRtcMemory();
         enter_sleep();
     }
-    curTime = millis()-boot_time;
-    Log.verbose(F(LOG_AS "Connect at %l ms" CR), curTime);
+    Log.verbose(F(LOG_AS "Connect at %l ms" CR), (uint16_t)(millis()-boot_time));
 
     station_config wifi_conf;
     wifi_station_get_config(&wifi_conf);

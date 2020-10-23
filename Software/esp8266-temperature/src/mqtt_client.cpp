@@ -49,27 +49,31 @@ static RtcMemory& rtc = RtcMemory::instance();
 
 MqttClient::MqttClient() : 
     rtc(RtcMemory::instance()), 
-    settings(NvsSettings::instance()), 
-    config(Config(), settings, "mqtt") 
+    settings(NvsSettings::instance()),
+	host(DEFAULT_MQTT_HOST, settings, "mqtt-host"),
+	port(DEFAULT_MQTT_PORT, settings, "mqtt-port"),
+	login(DEFAULT_MQTT_LOGIN, settings, "mqtt-login"),
+	pass(DEFAULT_MQTT_PASS, settings, "mqtt-pass"),
+	topic(DEFAULT_MQTT_TOPIC, settings, "mqtt-topic"),
+	id(DEFAULT_MQTT_ID, settings, "mqtt-id"),
+	timeout(DEFAULT_MQTT_TIMEOUT, settings, "mqtt-timeout")
 {
-    Config c(config);
-    String id = c.id;
+    String id = id;
     id.replace(F(PH_MAC), String(ESP.getChipId(), 16));
     strncpy(clientId, id.c_str(), sizeof(clientId));
 }
 
 void MqttClient::begin() {
     IPAddress mqttIp;
-    Config c(config);
 
     wifiClient.setNoDelay(true);
     if(rtc.isRtcValid())
         mqttIp = rtc.getMqttServerIp();
 
     if(mqttIp.isSet())
-        mqtt.setServer(mqttIp, c.port);
+        mqtt.setServer(mqttIp, port);
     else
-        mqtt.setServer(c.host, c.port);
+        mqtt.setServer(host, port);
     mqtt.setSocketTimeout(1);
 }
 
@@ -85,28 +89,12 @@ void MqttClient::callback(char* topic, uint8_t* payload, uint16_t length) {
 
     if(fingerprint < jsonDoc["fingerprint"]) {
         Log.verbose(F(LOG_AS "updating settings" CR));
-        for (JsonPair kv : jsonDoc.as<JsonObject>()) {
-            Log.verbose(F(LOG_AS "writing key: \"%s\" value: \"%s\"" CR), kv.key().c_str(), kv.value().as<char*>());
-            // Wifi setup
-            WiFiModule::instance().configure(jsonDoc["wifi-ssid"], jsonDoc["wifi-pwd"]);
-            // MQTT
-            Config c(MqttClient::instace().config);
-            if(!jsonDoc["mqtt-host"].isNull())
-                strncpy(c.host, jsonDoc["mqtt-host"], sizeof(c.host));
-            if(!jsonDoc["mqtt-port"].isNull())
-                c.port = jsonDoc["mqtt-port"];
-            if(!jsonDoc["mqtt-login"].isNull())
-                strncpy(c.login, jsonDoc["mqtt-login"], sizeof(c.login));
-            if(!jsonDoc["mqtt-pass"].isNull())
-                strncpy(c.pass, jsonDoc["mqtt-pass"], sizeof(c.pass));
-            if(!jsonDoc["mqtt-topic"].isNull())
-                strncpy(c.topic, jsonDoc["mqtt-topic"], sizeof(c.topic));
-            if(!jsonDoc["mqtt-id"].isNull())
-                strncpy(c.id, jsonDoc["mqtt-id"], sizeof(c.id));
-            MqttClient::instace().config = c;
-            // System
-            Main::instance().configure(jsonDoc["sleep-time"]);
-        }
+		// Wifi setup
+		WiFiModule::instance().updateSettings(jsonDoc);
+		// MQTT
+		MqttClient::instace().updateSettings(jsonDoc);
+		// System
+		Main::instance().updateSettings(jsonDoc);
     }
 
     if(reboot) {
@@ -116,7 +104,34 @@ void MqttClient::callback(char* topic, uint8_t* payload, uint16_t length) {
     }
 }
 
-bool MqttClient::connect(const uint32_t timeout) {
+bool MqttClient::configure(const StaticJsonDocument &jsonDoc) {
+	if(!jsonDoc["mqtt-host"].isNull())
+		host = jsonDoc["mqtt-host"];
+	if(!jsonDoc["mqtt-port"].isNull())
+		port = jsonDoc["mqtt-port"];
+	if(!jsonDoc["mqtt-login"].isNull())
+		login = jsonDoc["mqtt-login"];
+	if(!jsonDoc["mqtt-pass"].isNull())
+		pass = jsonDoc["mqtt-pass"];
+	if(!jsonDoc["mqtt-topic"].isNull())
+		topic = jsonDoc["mqtt-topic"];
+	if(!jsonDoc["mqtt-id"].isNull())
+		id = jsonDoc["mqtt-id"];
+	if(!jsonDoc["mqtt-timeout"].isNull())
+		timeout = jsonDoc["mqtt-timeout"];
+}
+
+void getDefaultSettings(StaticJsonDocument *jsonDoc) {
+	jsonDoc["mqtt-host"] = DEFAULT_MQTT_HOST;
+	jsonDoc["mqtt-port"] = DEFAULT_MQTT_PORT;
+	jsonDoc["mqtt-login"] = DEFAULT_MQTT_LOGIN;
+	jsonDoc["mqtt-pass"] = DEFAULT_MQTT_PASS;
+	jsonDoc["mqtt-topic"] = DEFAULT_MQTT_TOPIC;
+	jsonDoc["mqtt-id"] = DEFAULT_MQTT_ID;
+	jsonDoc["mqtt-timeout"] = DEFAULT_MQTT_TIMEOUT;
+}
+
+bool MqttClient::connect() {
     uint32_t start_ms = millis();
     Config c(config);
 

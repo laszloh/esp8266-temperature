@@ -27,61 +27,6 @@
  */
 #pragma once
 
-#if 0
-
-#include "wifi_priv.h"
-
-#define SETUP_TIME_SEC  120
-#define ESP_WIFI_TIMEOUT 15000
-#define MQTT_TIMEOUT 2000
-
-#define DEFAULT_WIFI_SSID   PRIVATE_WIFI_SSID
-#define DEFAULT_WIFI_PASS   PRIVATE_WIFI_PASS
-
-#define DEFAULT_MQTT_HOST   "192.168.88.12"
-#define DEFAULT_MQTT_TOPIC  "revai/sensors/%s/%s"
-#define DEFAULT_MQTT_PORT   1883
-#define DEFAULT_MQTT_LOGIN  PRIVATE_MQTT_LOGIN
-#define DEFAULT_MQTT_PASS   PRIVATE_MQTT_PASS
-#define DEFAULT_MQTT_ID     "ESP%04X"
-
-#define DEFAULT_ESP_SLEEP   (30*60)
-
-#define WIFI_SSID_LEN 33
-#define WIFI_PWD_LEN 64
-
-#define MQTT_HOST_LEN 64
-#define MQTT_LOGIN_LEN 32
-#define MQTT_PASSWORD_LEN 32
-#define MQTT_TOPIC_LEN 64
-#define MQTT_ID_LEN 32
-
-
-typedef struct __packed {
-    uint32_t crc;
-
-    struct data_t {
-        uint32 fingerprint;
-        char wifi_ssid[WIFI_SSID_LEN];
-        char wifi_pwd[WIFI_PWD_LEN];
-
-        char mqtt_host[MQTT_HOST_LEN];
-        uint16_t mqtt_port;
-        char mqtt_login[MQTT_LOGIN_LEN];
-        char mqtt_password[MQTT_PASSWORD_LEN];
-        char mqtt_topic[MQTT_TOPIC_LEN];
-        char mqtt_id[MQTT_ID_LEN];
-        uint32_t sleep_time;
-    } __packed data;
-} settings_t;
-
-
-
-bool loadConfig(settings_t &setting);
-bool saveConfig(const settings_t &setting);
-
-#endif
-
 #include "setup_ap.h"
 #include "nvs.h"
 
@@ -124,12 +69,18 @@ class NvsValue {
     T value;
     NvsSettings& s;
     const char *id;
+	bool defaultValue;
 
 public:
     NvsValue(const T& _value, NvsSettings& _s, const char *_id) 
-    : value(_value), s(s), id(_id) {
-        s.open(id, &value, sizeof(value));
+    : value(_value), s(s), id(_id), defaultValue(true) {
+        if(!s.open(id, &value, sizeof(value)))
+			defaultValue = (s.getLastError() == ESP_ERR_NVS_NOT_FOUND);
     }
+	
+	bool getDefaultValue() const {
+		return defaultValue;
+	}
 
     operator const T& () const {
         return value;
@@ -140,5 +91,38 @@ public:
         value = v;
         s.save(id, &value, sizeof(value));
         return value; 
+    }
+};
+
+template <size_t N>
+class NvsValue<char [N]> {
+    char value[N];
+    const char *id;
+    NvsSettings &s;
+	bool defaultValue;
+
+public:
+    NvsValue(const char *_value, NvsSettings& _s, const char *_id) 
+    : s(_s), id(_id), defaultValue(true) {
+        memcpy(&value, _value, sizeof(value));
+    }
+	
+	bool getDefaultValue() const {
+		return defaultValue;
+	}
+
+    operator const char* () const {
+        return value;
+    }
+
+    // commit the variable to the backend
+    char* operator = (const char* v) { 
+        memcpy(&value, v, sizeof(value));
+        s.save(id, &value, sizeof(value));
+        return value;
+    }
+
+    bool operator == (const char* v) {
+        return strcmp(operator const char*(), v) == 0; 
     }
 };

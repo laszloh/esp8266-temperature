@@ -47,9 +47,13 @@ public:
         static WiFiModule instance;
         return instance;
     }
+	
+	bool config() {
+		return (!config.getDefaultValue());
+	}
 
     void begin() {
-        Config c(config);
+        
         if(rtc.isRtcValid()) {
             Log.notice(F("[WiFi] " "RTC config: found" CR));
             WiFi.forceSleepWake();

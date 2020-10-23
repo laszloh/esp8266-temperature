@@ -45,7 +45,7 @@
 #define DEFAULT_MQTT_PASS   PRIVATE_MQTT_PASS
 #define DEFAULT_MQTT_ID     "ESP{m}"
 
-#define MQTT_TIMEOUT        2000
+#define DEFAULT_MQTT_TIMEOUT	2000
 
 class MqttClient {
 public:
@@ -53,9 +53,12 @@ public:
         static MqttClient instace;
         return instace;
     }
-
+	
+	bool updateSettings(const StaticJsonDocument &jsonDoc);
+	void getDefaultSettings(StaticJsonDocument *jsonDoc);
+	
     void begin();
-    bool connect(const uint32_t timeout=MQTT_TIMEOUT);
+    bool connect();
 
     void sendMeasurement(float temperature, float humidity, float pressure);
     void sendStatus(uint16_t voltage);
@@ -67,27 +70,16 @@ private:
     MqttClient(const MqttClient&);
     MqttClient& operator = (const MqttClient&);
 
-    struct Config {
-        char host[MQTT_HOST_LEN];
-        uint16_t port;
-        char login[MQTT_LOGIN_LEN];
-        char pass[MQTT_PASSWORD_LEN];
-        char topic[MQTT_TOPIC_LEN];
-        char id[MQTT_ID_LEN];
-
-        Config(const char *_host = DEFAULT_MQTT_HOST, uint16_t _port = DEFAULT_MQTT_PORT, const char *_login = DEFAULT_MQTT_LOGIN, 
-                const char *_pass = DEFAULT_MQTT_PASS, const char *_topic = DEFAULT_MQTT_TOPIC, const char *_id = DEFAULT_MQTT_ID): port(_port) {
-            strncpy(host, _host, sizeof(host));
-            strncpy(login, _login, sizeof(login));
-            strncpy(pass, _pass, sizeof(pass));
-            strncpy(topic, _topic, sizeof(topic));
-            strncpy(id, _id, sizeof(id));
-        }
-    };
-
     RtcMemory& rtc;
     NvsSettings& settings;
-    NvsValue<Config> config;
+	
+	NvsValue<char[MQTT_HOST_LEN]> host;
+	NvsValue<uint16_t> port;
+	NvsValue<char[MQTT_LOGIN_LEN]> login;
+	NvsValue<char[MQTT_PASSWORD_LEN]> pass;
+	NvsValue<char[MQTT_TOPIC_LEN]> topic;
+	NvsValue<char[MQTT_ID_LEN]> id;
+	NvsValue<uint32_t> timeout;
 
     char clientId[32];
 
