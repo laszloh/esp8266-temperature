@@ -29,6 +29,7 @@
 
 #include <Arduino.h>
 #include <ESP8266WiFi.h>
+#include <ArduinoJson.h>
 
 #include "rtc.h"
 #include "settings.h"
@@ -47,25 +48,20 @@ public:
         static WiFiModule instance;
         return instance;
     }
-	
-	bool config() {
-		return (!config.getDefaultValue());
-	}
 
     void begin() {
-        
         if(rtc.isRtcValid()) {
             Log.notice(F("[WiFi] " "RTC config: found" CR));
             WiFi.forceSleepWake();
             WiFi.config(rtc.getIp(), rtc.getGateway(), rtc.getMask(), rtc.getDns());
             uint8_t bssid[6];
             rtc.getBssid(bssid);
-            WiFi.begin(c.ssid, c.pwd, rtc.getChannel(), bssid);
+            WiFi.begin(ssid, pwd, rtc.getChannel(), bssid);
         } else {
             // no data in rtc, normal startup
             Log.notice(F("[WiFi] " "RTC config: NOT found" CR));
             WiFi.forceSleepWake();
-            WiFi.begin(c.ssid, c.pwd);
+            WiFi.begin(ssid, pwd);
         }
     }
 
@@ -75,46 +71,41 @@ public:
 
     bool connect() {
         uint32_t curMillis = millis();
-        Config c(config);
 
         while(!isConnected()) {
-            if(millis() - curMillis > c.timeout) 
+            if(millis() - curMillis > timeout) 
                 return false;
             delay(10);
         }
         return true;
     }
 
-    void configure(const char *_ssid = nullptr, const char *_pass = nullptr) {
-        Config c(config);
-        if(_ssid != nullptr)
-            strncpy(c.ssid, _ssid, sizeof(c.ssid));
-        if(_pass != nullptr)
-            strncpy(c.pwd, _pass, sizeof(c.pwd));
-        config = c;
+	void updateSettings(const JsonDocument &jsonDoc) {
+        ssid = jsonDoc["wifi-ssid"].as<const char*>();
+        pwd = jsonDoc["wifi-pass"].as<const char*>();
+        timeout = jsonDoc["wifi-timeout"].as<uint32_t>();
+    }
+
+	void getDefaultSettings(JsonDocument &jsonDoc) {
+        jsonDoc["wifi-ssid"] = DEFAULT_WIFI_SSID;
+        jsonDoc["wifi-pass"] = DEFAULT_WIFI_PASS;
+        jsonDoc["wifi-timeout"] = DEFAULT_WIFI_TIMEOUT;
     }
 
 private:
     WiFiModule(): 
         rtc(RtcMemory::instance()), 
         settings(NvsSettings::instance()),
-        config(Config(), settings, "wifi") { }
+        ssid(DEFAULT_WIFI_SSID, settings, "wifi-ssid"),
+        pwd(DEFAULT_WIFI_PASS, settings, "wifi-pass"),
+        timeout(DEFAULT_WIFI_TIMEOUT, settings, "wifi-timeout")
+        { }
     WiFiModule(const WiFiModule &);
     WiFiModule & operator = (const WiFiModule&);
 
-    struct Config {
-        char ssid[WIFI_SSID_LEN];
-        char pwd[WIFI_PWD_LEN];
-        uint32_t timeout;
-
-        Config(const char *_ssid = DEFAULT_WIFI_SSID, const char *_pass = DEFAULT_WIFI_PASS, 
-                uint32_t _timeout = DEFAULT_WIFI_TIMEOUT) : timeout(_timeout) {
-            strncpy(ssid, _ssid, sizeof(ssid));
-            strncpy(pwd, _pass, sizeof(pwd));
-        }
-    };
-
     RtcMemory& rtc;
     NvsSettings& settings;
-    NvsValue<Config> config;
+    NvsValue<char[WIFI_SSID_LEN]> ssid;
+    NvsValue<char[WIFI_PWD_LEN]> pwd;
+    NvsValue<uint32_t> timeout;
 };

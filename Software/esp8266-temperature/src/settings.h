@@ -88,6 +88,8 @@ public:
 
     // commit the variable to the backend
     const T& operator = (const T& v) { 
+        if(!v)
+            return value;
         value = v;
         s.save(id, &value, sizeof(value));
         return value; 
@@ -103,7 +105,7 @@ class NvsValue<char [N]> {
 
 public:
     NvsValue(const char *_value, NvsSettings& _s, const char *_id) 
-    : s(_s), id(_id), defaultValue(true) {
+    : id(_id), s(_s), defaultValue(true) {
         memcpy(&value, _value, sizeof(value));
     }
 	
@@ -117,6 +119,8 @@ public:
 
     // commit the variable to the backend
     char* operator = (const char* v) { 
+        if(!v)
+            return value;
         memcpy(&value, v, sizeof(value));
         s.save(id, &value, sizeof(value));
         return value;

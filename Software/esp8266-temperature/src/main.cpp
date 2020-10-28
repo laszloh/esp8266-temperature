@@ -119,10 +119,6 @@ void setup() {
             rtc.WriteRtcMemory();
         }
     }
-	
-	// let everybody load their config
-	forceConfig |= !WifiModule::instace().config();
-	forceConfig |= !MqttClient::instace().config();
 
     // load config from EEPROM
     if(!nvs.isOpened() || forceConfig) {

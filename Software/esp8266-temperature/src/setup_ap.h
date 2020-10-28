@@ -34,13 +34,15 @@ extern WiFiManager wm;
 
 bool setup_ap();
 
-class LongParameter : public WiFiManagerParameter {
+template <typename T>
+class Parameter : public  WiFiManagerParameter {
 public:
-    LongParameter(const char *id, const char *placeholder, long value, const uint8_t length = 10) : WiFiManagerParameter("") {
-        init(id, placeholder, String(value).c_str(), length, " type=\"number\"", WFM_LABEL_BEFORE);
+    Parameter(const char *id, const char *placeholder, T &value, const uint8_t length = 10) : WiFiManagerParameter("") {
+        const char *custom = (std::is_integral<T>::calue) ? " type='number'" : "";
+        init(id, placeholder, String(value).c_str(), length, custom, WFM_LABEL_BEFORE);
     }
 
-    long getValue() {
-        return String(WiFiManagerParameter::getValue()).toInt();
+    String getValue() {
+        return String(WiFiManagerParameter::getValue());
     }
 };

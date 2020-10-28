@@ -27,6 +27,8 @@
  */
 #pragma once
 
+#include <ArduinoJson.h>
+
 #include "settings.h"
 #include "rtc.h"
 
@@ -54,8 +56,8 @@ public:
         return instace;
     }
 	
-	bool updateSettings(const StaticJsonDocument &jsonDoc);
-	void getDefaultSettings(StaticJsonDocument *jsonDoc);
+	void updateSettings(const JsonDocument &jsonDoc);
+	void getDefaultSettings(JsonDocument &jsonDoc);
 	
     void begin();
     bool connect();

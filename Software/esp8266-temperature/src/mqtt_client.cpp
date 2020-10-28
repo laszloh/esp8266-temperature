@@ -104,24 +104,17 @@ void MqttClient::callback(char* topic, uint8_t* payload, uint16_t length) {
     }
 }
 
-bool MqttClient::configure(const StaticJsonDocument &jsonDoc) {
-	if(!jsonDoc["mqtt-host"].isNull())
-		host = jsonDoc["mqtt-host"];
-	if(!jsonDoc["mqtt-port"].isNull())
-		port = jsonDoc["mqtt-port"];
-	if(!jsonDoc["mqtt-login"].isNull())
-		login = jsonDoc["mqtt-login"];
-	if(!jsonDoc["mqtt-pass"].isNull())
-		pass = jsonDoc["mqtt-pass"];
-	if(!jsonDoc["mqtt-topic"].isNull())
-		topic = jsonDoc["mqtt-topic"];
-	if(!jsonDoc["mqtt-id"].isNull())
-		id = jsonDoc["mqtt-id"];
-	if(!jsonDoc["mqtt-timeout"].isNull())
-		timeout = jsonDoc["mqtt-timeout"];
+void MqttClient::updateSettings(const JsonDocument &jsonDoc) {
+    host = jsonDoc["mqtt-host"].as<const char*>();
+    port = jsonDoc["mqtt-port"].as<uint32_t>();
+    login = jsonDoc["mqtt-login"].as<const char*>();
+    pass = jsonDoc["mqtt-pass"].as<const char*>();
+    topic = jsonDoc["mqtt-topic"].as<const char*>();
+    id = jsonDoc["mqtt-id"].as<const char*>();
+    timeout = jsonDoc["mqtt-timeout"].as<uint32_t>();
 }
 
-void getDefaultSettings(StaticJsonDocument *jsonDoc) {
+void getDefaultSettings(JsonDocument &jsonDoc) {
 	jsonDoc["mqtt-host"] = DEFAULT_MQTT_HOST;
 	jsonDoc["mqtt-port"] = DEFAULT_MQTT_PORT;
 	jsonDoc["mqtt-login"] = DEFAULT_MQTT_LOGIN;
@@ -133,10 +126,9 @@ void getDefaultSettings(StaticJsonDocument *jsonDoc) {
 
 bool MqttClient::connect() {
     uint32_t start_ms = millis();
-    Config c(config);
 
     while(!mqtt.connected()) {
-        mqtt.connect(clientId, c.login, c.pass, 0, 0, 0, 0, false);
+        mqtt.connect(clientId, login, pass, 0, 0, 0, 0, false);
         if((millis() - start_ms) > timeout) {
             Log.error(F(LOG_AS "Connection timed out at %l ms" CR), millis());
             return false;
@@ -145,12 +137,12 @@ bool MqttClient::connect() {
     mqtt.setCallback(callback);
     mqtt.setBufferSize(1024);
 
-    String topic = c.topic;
+    String topic = topic;
     topic.replace(F(PH_ID), clientId);
     topic.replace(F(PH_TYPE), F("setup"));
     mqtt.subscribe(topic.c_str());
 
-    topic = c.topic;
+    topic = topic;
     topic.replace(F(PH_ID), F("all"));
     topic.replace(F(PH_TYPE), F("setup"));
     mqtt.subscribe(topic.c_str());
@@ -163,8 +155,7 @@ void MqttClient::loop() {
 }
 
 void MqttClient::sendMeasurement(float temperature, float humidity, float pressure) {
-    Config c(config);
-    String topic = c.topic;
+    String topic = topic;
     char message[512];
     DynamicJsonDocument jsonDoc(1024);
 
@@ -183,8 +174,7 @@ void MqttClient::sendMeasurement(float temperature, float humidity, float pressu
 }
 
 void MqttClient::sendStatus(uint16_t voltage) {
-    Config c(config);
-    String topic = c.topic;
+    String topic = topic;
     char message[512];
     DynamicJsonDocument doc(1024);
     int32_t rssi = WiFi.RSSI();

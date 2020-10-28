@@ -42,32 +42,29 @@ public:
     }
 
     uint32_t getSleepTime() const {
-        Config c(config);
-        return c.sleepTime;
+        return sleep;
     }
 
-    void configure(uint32_t sleepTime) {
-        Config c(config);
-        if(sleepTime != 0)
-            c.sleepTime = sleepTime * 60 * 1000 * 1000;
-        config = c;
+	void updateSettings(const JsonDocument &jsonDoc) {
+        sleep = s_to_us(jsonDoc["sleep-time"].as<uint32_t>());
+    }
+
+	void getDefaultSettings(JsonDocument &jsonDoc) {
+        jsonDoc["sleep-time"] = DEFAULT_SLEEP_TIME;
     }
 
 private:
     Main() :
         settings(NvsSettings::instance()),
-        config(Config(), settings, "main") 
+        sleep(s_to_us(DEFAULT_SLEEP_TIME), settings, "sleep-time") 
         { }
     Main(const Main&);
     Main& operator = (const Main&);
+
+    uint32_t s_to_us(uint32_t s) const {
+        return s * 60 * 1000 * 1000;
+    }
     
-    struct Config {
-        uint32_t sleepTime;
-
-        Config(uint32_t _sleep =  DEFAULT_SLEEP_TIME) : sleepTime(_sleep * 60 * 1000 * 1000)
-        { }
-    };
-
     NvsSettings& settings;
-    NvsValue<Config> config;
+    NvsValue<uint32_t> sleep;
 };
