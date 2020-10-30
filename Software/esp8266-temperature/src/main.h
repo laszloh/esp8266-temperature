@@ -49,14 +49,11 @@ public:
         sleep = s_to_us(jsonDoc["sleep-time"].as<uint32_t>());
     }
 
-	void getDefaultSettings(JsonDocument &jsonDoc) {
-        jsonDoc["sleep-time"] = DEFAULT_SLEEP_TIME;
-    }
-
 private:
     Main() :
         settings(NvsSettings::instance()),
-        sleep(s_to_us(DEFAULT_SLEEP_TIME), settings, "sleep-time") 
+        sleep(s_to_us(DEFAULT_SLEEP_TIME), settings, "sleep-time"),
+        pSleep(sleep.getID(), "Unit Sleep", String(sleep).c_str(), true)
         { }
     Main(const Main&);
     Main& operator = (const Main&);
@@ -67,4 +64,22 @@ private:
     
     NvsSettings& settings;
     NvsValue<uint32_t> sleep;
+
+    class Parameter : public WiFiManagerParameter {
+    public:
+        Parameter(const char *id, const char *label, const char *defaultValue, bool integer, int length = 10) : 
+            WiFiManagerParameter(id, label, defaultValue, length) {
+            if(integer)
+                init(id, label, defaultValue, length, " type='number'", WFM_LABEL_BEFORE);
+        }
+
+        void saveParameter() override {
+            Main& m = Main::instance();
+            if(strcmp(m.sleep.getID(), getID()) == 0) {
+                m.sleep = atoi(getValue());
+            }
+        }
+    };
+
+    Parameter pSleep;
 };

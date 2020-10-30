@@ -45,6 +45,10 @@ public:
     }
 
     uint32_t getFingerprint();
+    void setFingerprint(uint32_t fp);
+
+    bool isFirstRun();
+    void setFirstRun(bool v);
 
     bool isOpened() const {
         return opened;
@@ -69,18 +73,16 @@ class NvsValue {
     T value;
     NvsSettings& s;
     const char *id;
-	bool defaultValue;
 
 public:
     NvsValue(const T& _value, NvsSettings& _s, const char *_id) 
-    : value(_value), s(s), id(_id), defaultValue(true) {
-        if(!s.open(id, &value, sizeof(value)))
-			defaultValue = (s.getLastError() == ESP_ERR_NVS_NOT_FOUND);
+    : value(_value), s(s), id(_id) {
+        s.open(id, &value, sizeof(value));
     }
-	
-	bool getDefaultValue() const {
-		return defaultValue;
-	}
+
+    const char* getID() const {
+        return id;
+    }
 
     operator const T& () const {
         return value;
@@ -91,7 +93,8 @@ public:
         if(!v)
             return value;
         value = v;
-        s.save(id, &value, sizeof(value));
+        if(v != value)
+            s.save(id, &value, sizeof(value));
         return value; 
     }
 };
@@ -101,17 +104,16 @@ class NvsValue<char [N]> {
     char value[N];
     const char *id;
     NvsSettings &s;
-	bool defaultValue;
 
 public:
     NvsValue(const char *_value, NvsSettings& _s, const char *_id) 
-    : id(_id), s(_s), defaultValue(true) {
+    : id(_id), s(_s) {
         memcpy(&value, _value, sizeof(value));
     }
-	
-	bool getDefaultValue() const {
-		return defaultValue;
-	}
+
+    const char* getID() const {
+        return id;
+    }
 
     operator const char* () const {
         return value;
@@ -121,8 +123,10 @@ public:
     char* operator = (const char* v) { 
         if(!v)
             return value;
-        memcpy(&value, v, sizeof(value));
-        s.save(id, &value, sizeof(value));
+        if(strcmp(value, v) != 0) {
+            memcpy(&value, v, sizeof(value));
+            s.save(id, &value, sizeof(value));
+        }
         return value;
     }
 

@@ -27,22 +27,10 @@
  */
 #pragma once
 
-#include "settings.h"
 #include <WiFiManager.h>
 
 extern WiFiManager wm;
 
 bool setup_ap();
 
-template <typename T>
-class Parameter : public  WiFiManagerParameter {
-public:
-    Parameter(const char *id, const char *placeholder, T &value, const uint8_t length = 10) : WiFiManagerParameter("") {
-        const char *custom = (std::is_integral<T>::calue) ? " type='number'" : "";
-        init(id, placeholder, String(value).c_str(), length, custom, WFM_LABEL_BEFORE);
-    }
 
-    String getValue() {
-        return String(WiFiManagerParameter::getValue());
-    }
-};

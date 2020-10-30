@@ -102,9 +102,21 @@ void NvsSettings::save(const char *name, const void *ptr, size_t dataSize) {
 
 uint32_t NvsSettings::getFingerprint() {
     uint32_t fp = 0;
-    esp_err_t err = nvs_get_u32(handle, "sett-print", &fp);
-    if(err == ESP_ERR_NVS_NOT_FOUND) {
-        nvs_set_u32(handle, "sett-print", fp);
-    }
+    lastError = nvs_get_u32(handle, "sett-print", &fp);
     return fp;
+}
+
+void NvsSettings::setFingerprint(uint32_t fp) {
+    lastError = nvs_set_u32(handle, "sett-print", fp);
+}
+
+bool NvsSettings::isFirstRun() {
+    uint8_t firstRun = 1;
+    lastError = nvs_get_u8(handle, "sett-first", &firstRun);
+    return (firstRun);
+}
+
+void NvsSettings::setFirstRun(bool v) {
+    uint8_t firstRun = (v) ? 1 : 0;
+    lastError = nvs_set_u8(handle, "sett-first", firstRun);
 }

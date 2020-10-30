@@ -56,11 +56,27 @@ MqttClient::MqttClient() :
 	pass(DEFAULT_MQTT_PASS, settings, "mqtt-pass"),
 	topic(DEFAULT_MQTT_TOPIC, settings, "mqtt-topic"),
 	id(DEFAULT_MQTT_ID, settings, "mqtt-id"),
-	timeout(DEFAULT_MQTT_TIMEOUT, settings, "mqtt-timeout")
+	timeout(DEFAULT_MQTT_TIMEOUT, settings, "mqtt-timeout"),
+    pHost(host.getID(), "MQTT Host", host),
+    pPort(port.getID(), "MQTT Host", String(port).c_str(), true),
+    pLogin(login.getID(), "MQTT Host", login),
+    pPass(pass.getID(), "MQTT Host", pass),
+    pTopic(topic.getID(), "MQTT Host", topic),
+    pId(id.getID(), "MQTT Host", id),
+    pTimeout(timeout.getID(), "MQTT Host", String(timeout).c_str(), true)
+
 {
     String id = id;
     id.replace(F(PH_MAC), String(ESP.getChipId(), 16));
     strncpy(clientId, id.c_str(), sizeof(clientId));
+
+    wm.addParameter(&pHost);
+    wm.addParameter(&pPort);
+    wm.addParameter(&pLogin);
+    wm.addParameter(&pPass);
+    wm.addParameter(&pTopic);
+    wm.addParameter(&pId);
+    wm.addParameter(&pTimeout);
 }
 
 void MqttClient::begin() {
@@ -90,11 +106,14 @@ void MqttClient::callback(char* topic, uint8_t* payload, uint16_t length) {
     if(fingerprint < jsonDoc["fingerprint"]) {
         Log.verbose(F(LOG_AS "updating settings" CR));
 		// Wifi setup
-		WiFiModule::instance().updateSettings(jsonDoc);
+		WifiModule::instance().updateSettings(jsonDoc);
 		// MQTT
 		MqttClient::instace().updateSettings(jsonDoc);
 		// System
 		Main::instance().updateSettings(jsonDoc);
+        // save the new settings fingerprint
+        settings.setFingerprint(jsonDoc["fingerprint"]);
+        reboot = true;
     }
 
     if(reboot) {
@@ -112,16 +131,6 @@ void MqttClient::updateSettings(const JsonDocument &jsonDoc) {
     topic = jsonDoc["mqtt-topic"].as<const char*>();
     id = jsonDoc["mqtt-id"].as<const char*>();
     timeout = jsonDoc["mqtt-timeout"].as<uint32_t>();
-}
-
-void getDefaultSettings(JsonDocument &jsonDoc) {
-	jsonDoc["mqtt-host"] = DEFAULT_MQTT_HOST;
-	jsonDoc["mqtt-port"] = DEFAULT_MQTT_PORT;
-	jsonDoc["mqtt-login"] = DEFAULT_MQTT_LOGIN;
-	jsonDoc["mqtt-pass"] = DEFAULT_MQTT_PASS;
-	jsonDoc["mqtt-topic"] = DEFAULT_MQTT_TOPIC;
-	jsonDoc["mqtt-id"] = DEFAULT_MQTT_ID;
-	jsonDoc["mqtt-timeout"] = DEFAULT_MQTT_TIMEOUT;
 }
 
 bool MqttClient::connect() {

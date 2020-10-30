@@ -74,13 +74,17 @@ void preinit() {
   ESP8266WiFiClass::preinitWiFiOff();
 }
 
-void enter_sleep(void) {
-    uint32_t curTime;
+void enter_sleep(bool error = false) {
+    uint32_t curTime = millis()-boot_time;
 
     Log.notice(F(LOG_AS "Going to deep sleep" CR));
-    curTime = millis()-boot_time;
-    rtc.setLastWakeDuration(curTime);
-    rtc.WriteRtcMemory();
+    if(error) {
+        rtc.InvalidiateRtcMemory();
+    } else {
+        rtc.setLastWakeDuration(curTime);
+        rtc.setResetCounter(0);
+        rtc.WriteRtcMemory();
+    }
     Log.verbose(F(LOG_AS "Was awake for %l ms" CR), curTime);
     Serial.flush();
     ESP.deepSleepInstant(mainClass.getSleepTime(), WAKE_NO_RFCAL);
@@ -121,19 +125,20 @@ void setup() {
     }
 
     // load config from EEPROM
-    if(!nvs.isOpened() || forceConfig) {
-        // if we fail to load the settings, launch AP
+    if(nvs.isFirstRun() || forceConfig) {
+        // If we are strting up for the first time (or lost our nvs section)
         rtc.setReconfigure(false);
         rtc.WriteRtcMemory();
         if(!setup_ap()) {
             // setup AP timed out
             Log.error(F(LOG_AS "Setup AP timed out. Going to forced sleep."));
-            enter_sleep();
+            enter_sleep(true);
         }
+        nvs.setFirstRun(false);
     }
 
     // boot up the wifi to send the data
-    WiFiModule::instance().begin();
+    WifiModule::instance().begin();
 
     // boot up the BME280
     if(bme280.begin(BME280_ADDRESS_ALTERNATE)) {
@@ -160,12 +165,11 @@ void setup() {
         enter_sleep();
     }
 
-    if(!WiFiModule::instance().connect()) {
+    if(!WifiModule::instance().connect()) {
         Log.error(F(LOG_AS "Could not connect to WiFi..." CR));
         Log.error(F(LOG_AS "Giving up at %l ms" CR), (uint16_t)(millis()-boot_time));
         Log.error(F(LOG_AS "resetting rtc and going to forced sleep..." CR));
-        rtc.InvalidiateRtcMemory();
-        enter_sleep();
+        enter_sleep(true);
     }
     Log.verbose(F(LOG_AS "Connect at %l ms" CR), (uint16_t)(millis()-boot_time));
 
@@ -183,7 +187,7 @@ void setup() {
     // Start the MQTT party
     client.begin();
     if(!client.connect())
-        enter_sleep();
+        enter_sleep(true);
 }
 
 void loop() {

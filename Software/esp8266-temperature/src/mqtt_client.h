@@ -49,6 +49,11 @@
 
 #define DEFAULT_MQTT_TIMEOUT	2000
 
+constexpr unsigned int str2int(const char* str, int h = 0)
+{
+    return !str[h] ? 5381 : (str2int(str, h+1) * 33) ^ str[h];
+}
+
 class MqttClient {
 public:
     static MqttClient& instace() {
@@ -57,7 +62,6 @@ public:
     }
 	
 	void updateSettings(const JsonDocument &jsonDoc);
-	void getDefaultSettings(JsonDocument &jsonDoc);
 	
     void begin();
     bool connect();
@@ -87,4 +91,42 @@ private:
 
     int8_t getRssiQuality(const int32_t rssi) const;
     static void callback(char* topic, uint8_t* payload, uint16_t length);
+
+    class Parameter : public WiFiManagerParameter {
+    public:
+        Parameter(const char *id, const char *label, const char *defaultValue, bool integer = false, int length = 10) : 
+            WiFiManagerParameter(id, label, defaultValue, length) {
+            if(integer)
+                init(id, label, defaultValue, length, " type='number'", WFM_LABEL_BEFORE);
+        }
+
+        void saveParameter() override {
+            MqttClient& c = MqttClient::instace();
+
+            if(strcmp(c.host.getID(), getID()) == 0) {
+                c.host = getValue();
+            } else if(strcmp(c.port.getID(), getID()) == 0) {
+                c.port = atoi(getValue());
+            } else if(strcmp(c.login.getID(), getID()) == 0) {
+                c.login = getValue();
+            } else if(strcmp(c.pass.getID(), getID()) == 0) {
+                c.pass = getValue();
+            } else if(strcmp(c.topic.getID(), getID()) == 0) {
+                c.topic = getValue();
+            } else if(strcmp(c.id.getID(), getID()) == 0) {
+                c.id = getValue();
+            } else if(strcmp(c.timeout.getID(), getID()) == 0) {
+                c.timeout = atoi(getValue());                
+            }
+        }
+    };
+
+    Parameter pHost;
+    Parameter pPort;
+    Parameter pLogin;
+    Parameter pPass;
+    Parameter pTopic;
+    Parameter pId;
+    Parameter pTimeout;
 };
+
