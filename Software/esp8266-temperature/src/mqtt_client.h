@@ -79,13 +79,13 @@ private:
     RtcMemory& rtc;
     NvsSettings& settings;
 	
-	NvsValue<char[MQTT_HOST_LEN]> host;
-	NvsValue<uint16_t> port;
-	NvsValue<char[MQTT_LOGIN_LEN]> login;
-	NvsValue<char[MQTT_PASSWORD_LEN]> pass;
-	NvsValue<char[MQTT_TOPIC_LEN]> topic;
-	NvsValue<char[MQTT_ID_LEN]> id;
-	NvsValue<uint32_t> timeout;
+	NvsValue< StrValue<MQTT_HOST_LEN> > host;
+	NvsValue< IntValue<uint16_t> > port;
+	NvsValue< StrValue<MQTT_LOGIN_LEN> > login;
+	NvsValue< StrValue<MQTT_PASSWORD_LEN> > pass;
+	NvsValue< StrValue<MQTT_TOPIC_LEN> > topic;
+	NvsValue< StrValue<MQTT_ID_LEN> > id;
+	NvsValue< IntValue<uint32_t> > timeout;
 
     char clientId[32];
 

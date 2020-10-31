@@ -42,7 +42,7 @@ public:
     }
 
     uint32_t getSleepTime() const {
-        return sleep;
+        return sleep.get();
     }
 
 	void updateSettings(const JsonDocument &jsonDoc) {
@@ -53,7 +53,7 @@ private:
     Main() :
         settings(NvsSettings::instance()),
         sleep(s_to_us(DEFAULT_SLEEP_TIME), settings, "sleep-time"),
-        pSleep(sleep.getID(), "Unit Sleep", String(sleep).c_str(), true)
+        pSleep(sleep.getID(), "Unit Sleep", sleep, true)
         { }
     Main(const Main&);
     Main& operator = (const Main&);
@@ -63,7 +63,7 @@ private:
     }
     
     NvsSettings& settings;
-    NvsValue<uint32_t> sleep;
+    NvsValue< IntValue<uint32_t> > sleep;
 
     class Parameter : public WiFiManagerParameter {
     public:

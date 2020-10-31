@@ -58,12 +58,12 @@ MqttClient::MqttClient() :
 	id(DEFAULT_MQTT_ID, settings, "mqtt-id"),
 	timeout(DEFAULT_MQTT_TIMEOUT, settings, "mqtt-timeout"),
     pHost(host.getID(), "MQTT Host", host),
-    pPort(port.getID(), "MQTT Host", String(port).c_str(), true),
+    pPort(port.getID(), "MQTT Host", port, true),
     pLogin(login.getID(), "MQTT Host", login),
     pPass(pass.getID(), "MQTT Host", pass),
     pTopic(topic.getID(), "MQTT Host", topic),
     pId(id.getID(), "MQTT Host", id),
-    pTimeout(timeout.getID(), "MQTT Host", String(timeout).c_str(), true)
+    pTimeout(timeout.getID(), "MQTT Host", timeout, true)
 
 {
     String id = id;
@@ -87,9 +87,9 @@ void MqttClient::begin() {
         mqttIp = rtc.getMqttServerIp();
 
     if(mqttIp.isSet())
-        mqtt.setServer(mqttIp, port);
+        mqtt.setServer(mqttIp, port.get());
     else
-        mqtt.setServer(host, port);
+        mqtt.setServer(host, port.get());
     mqtt.setSocketTimeout(1);
 }
 
@@ -125,7 +125,7 @@ void MqttClient::callback(char* topic, uint8_t* payload, uint16_t length) {
 
 void MqttClient::updateSettings(const JsonDocument &jsonDoc) {
     host = jsonDoc["mqtt-host"].as<const char*>();
-    port = jsonDoc["mqtt-port"].as<uint32_t>();
+    port = jsonDoc["mqtt-port"].as<uint16_t>();
     login = jsonDoc["mqtt-login"].as<const char*>();
     pass = jsonDoc["mqtt-pass"].as<const char*>();
     topic = jsonDoc["mqtt-topic"].as<const char*>();
@@ -138,7 +138,7 @@ bool MqttClient::connect() {
 
     while(!mqtt.connected()) {
         mqtt.connect(clientId, login, pass, 0, 0, 0, 0, false);
-        if((millis() - start_ms) > timeout) {
+        if((millis() - start_ms) > timeout.get()) {
             Log.error(F(LOG_AS "Connection timed out at %l ms" CR), millis());
             return false;
         }

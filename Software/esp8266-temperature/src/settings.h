@@ -68,7 +68,91 @@ private:
     esp_err_t lastError;
 };
 
-template <typename T>
+template <size_t N>
+class StrValue {
+    char value[N+1];
+public:
+    StrValue() {
+        value[0] = 0;
+    }
+    StrValue(const char* v) {
+        if(v)
+            strncpy(value, v, N);
+        else
+            value[0] = 0;
+    }
+
+    size_t size() const {
+        return N;
+    }
+
+    const void *val_ptr() const {
+        return &value;
+    }
+
+    bool operator == (const StrValue& v) {
+        return (strcmp(value, v.value) == 0);
+    }
+
+    bool operator != (const StrValue& v) const {
+        return (strcmp(value, v.value) != 0);
+    }
+
+    void operator = (const StrValue& v) {
+        strncpy(value, v.value, N);
+    }
+
+    operator const char*() const {
+        return value;
+    }
+
+};
+
+template <typename N>
+class IntValue {
+    N value;
+
+public:
+    IntValue() {
+        value = 0;
+    }
+    IntValue(const N v) {
+        value = v;
+    }
+
+    size_t size() const {
+        return sizeof(N);
+    }
+
+    const void *val_ptr() const {
+        return &value;
+    }
+
+    bool operator == (const IntValue& v) const {
+        return value == v.value;
+    }
+
+    bool operator != (const IntValue& v) const {
+        return ! (*this) == v;
+    }
+
+    void operator = (const IntValue& v) {
+        value = v.value;
+    }
+
+    operator const char*() const {
+        static char buffer[10];
+        snprintf(buffer, sizeof(buffer), "%d", value);
+        return buffer;
+    }
+
+    operator N() const {
+        return value;
+    }
+
+};
+
+template <class T>
 class NvsValue {
     T value;
     NvsSettings& s;
@@ -90,47 +174,17 @@ public:
 
     // commit the variable to the backend
     const T& operator = (const T& v) { 
-        if(!v)
-            return value;
-        value = v;
         if(v != value)
-            s.save(id, &value, sizeof(value));
+            s.save(id, value.val_ptr(), value.size());
+        value = v;
         return value; 
     }
-};
 
-template <size_t N>
-class NvsValue<char [N]> {
-    char value[N];
-    const char *id;
-    NvsSettings &s;
-
-public:
-    NvsValue(const char *_value, NvsSettings& _s, const char *_id) 
-    : id(_id), s(_s) {
-        memcpy(&value, _value, sizeof(value));
-    }
-
-    const char* getID() const {
-        return id;
-    }
-
-    operator const char* () const {
+    const T& get() const {
         return value;
     }
 
-    // commit the variable to the backend
-    char* operator = (const char* v) { 
-        if(!v)
-            return value;
-        if(strcmp(value, v) != 0) {
-            memcpy(&value, v, sizeof(value));
-            s.save(id, &value, sizeof(value));
-        }
+    operator const char*() const {
         return value;
-    }
-
-    bool operator == (const char* v) {
-        return strcmp(operator const char*(), v) == 0; 
     }
 };

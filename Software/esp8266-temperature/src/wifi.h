@@ -73,7 +73,7 @@ public:
         uint32_t curMillis = millis();
 
         while(!isConnected()) {
-            if(millis() - curMillis > timeout) 
+            if(millis() - curMillis > timeout.get()) 
                 return false;
             delay(10);
         }
@@ -93,7 +93,7 @@ private:
         ssid(DEFAULT_WIFI_SSID, settings, "wifi-ssid"),
         pass(DEFAULT_WIFI_PASS, settings, "wifi-pass"),
         timeout(DEFAULT_WIFI_TIMEOUT, settings, "wifi-timeout"),
-        pTimeout(timeout.getID(), "Wifi Timeout", String(timeout).c_str(), true)
+        pTimeout(timeout.getID(), "Wifi Timeout", timeout, true)
         {
             wm.addParameter(&pTimeout);
         }
@@ -102,9 +102,9 @@ private:
 
     RtcMemory& rtc;
     NvsSettings& settings;
-    NvsValue<char[WIFI_SSID_LEN]> ssid;
-    NvsValue<char[WIFI_PWD_LEN]> pass;
-    NvsValue<uint32_t> timeout;
+    NvsValue< StrValue<WIFI_SSID_LEN> > ssid;
+    NvsValue< StrValue<WIFI_PWD_LEN> > pass;
+    NvsValue< IntValue<uint32_t> > timeout;
 
     class Parameter : public WiFiManagerParameter {
     public:
