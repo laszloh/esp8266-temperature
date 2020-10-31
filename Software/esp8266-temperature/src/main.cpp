@@ -182,7 +182,6 @@ void setup() {
     rtc.setMask(WiFi.subnetMask());
     rtc.setDns(WiFi.dnsIP());
     rtc.setResetCounter(0);
-    rtc.WriteRtcMemory();
 
     // Start the MQTT party
     client.begin();
@@ -191,7 +190,7 @@ void setup() {
 }
 
 void loop() {
-    uint16_t vcc = ESP.getVcc();
+    uint16_t vcc = ESP.getVcc() / 1024;
     client.sendMeasurement(temp, humidity, pressure);
     client.sendStatus(vcc);
 

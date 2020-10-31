@@ -80,14 +80,9 @@ MqttClient::MqttClient() :
 }
 
 void MqttClient::begin() {
-    IPAddress mqttIp;
-
     wifiClient.setNoDelay(true);
-    if(rtc.isRtcValid())
-        mqttIp = rtc.getMqttServerIp();
-
-    if(mqttIp.isSet())
-        mqtt.setServer(mqttIp, port.get());
+    if(rtc.isRtcValid() && rtc.getMqttServerIp().isSet())
+        mqtt.setServer(rtc.getMqttServerIp(), port.get());
     else
         mqtt.setServer(host, port.get());
     mqtt.setSocketTimeout(1);
@@ -143,6 +138,8 @@ bool MqttClient::connect() {
             return false;
         }
     }
+    rtc.setMqttServerIp(wifiClient.remotePort());
+
     mqtt.setCallback(callback);
     mqtt.setBufferSize(1024);
 

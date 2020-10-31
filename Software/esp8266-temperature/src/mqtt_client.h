@@ -49,11 +49,6 @@
 
 #define DEFAULT_MQTT_TIMEOUT	2000
 
-constexpr unsigned int str2int(const char* str, int h = 0)
-{
-    return !str[h] ? 5381 : (str2int(str, h+1) * 33) ^ str[h];
-}
-
 class MqttClient {
 public:
     static MqttClient& instace() {
@@ -102,20 +97,21 @@ private:
 
         void saveParameter() override {
             MqttClient& c = MqttClient::instace();
+            const char *id = getID();
 
-            if(strcmp(c.host.getID(), getID()) == 0) {
+            if(strcmp(c.host.getID(), id) == 0) {
                 c.host = getValue();
-            } else if(strcmp(c.port.getID(), getID()) == 0) {
+            } else if(strcmp(c.port.getID(), id) == 0) {
                 c.port = atoi(getValue());
-            } else if(strcmp(c.login.getID(), getID()) == 0) {
+            } else if(strcmp(c.login.getID(), id) == 0) {
                 c.login = getValue();
-            } else if(strcmp(c.pass.getID(), getID()) == 0) {
+            } else if(strcmp(c.pass.getID(), id) == 0) {
                 c.pass = getValue();
-            } else if(strcmp(c.topic.getID(), getID()) == 0) {
+            } else if(strcmp(c.topic.getID(), id) == 0) {
                 c.topic = getValue();
-            } else if(strcmp(c.id.getID(), getID()) == 0) {
+            } else if(strcmp(c.id.getID(), id) == 0) {
                 c.id = getValue();
-            } else if(strcmp(c.timeout.getID(), getID()) == 0) {
+            } else if(strcmp(c.timeout.getID(), id) == 0) {
                 c.timeout = atoi(getValue());                
             }
         }
