@@ -189,14 +189,14 @@ Wire Wire Line
 Wire Wire Line
 	3600 3450 3600 3500
 $Comp
-L Connector_Generic:Conn_01x04 J2
+L Connector_Generic:Conn_01x06 J2
 U 1 1 5F5F7537
-P 8400 3600
-F 0 "J2" H 8480 3592 50  0000 L CNN
-F 1 "program" H 8480 3501 50  0000 L CNN
-F 2 "Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical" H 8400 3600 50  0001 C CNN
-F 3 "~" H 8400 3600 50  0001 C CNN
-	1    8400 3600
+P 8700 3700
+F 0 "J2" H 8780 3692 50  0000 L CNN
+F 1 "program" H 8780 3601 50  0000 L CNN
+F 2 "Connector:Tag-Connect_TC2030-IDC-NL_2x03_P1.27mm_Vertical" H 8700 3700 50  0001 C CNN
+F 3 "~" H 8700 3700 50  0001 C CNN
+	1    8700 3700
 	1    0    0    -1  
 $EndComp
 $Comp
@@ -218,51 +218,35 @@ Text Label 4650 3450 2    50   ~ 0
 ~RST
 Text Label 6800 4450 2    50   ~ 0
 ~RST
-Wire Wire Line
-	8200 3500 8100 3500
-Wire Wire Line
-	8100 3500 8100 3450
 $Comp
 L power:+3.3V #PWR016
 U 1 1 5F5FA61A
-P 8100 3450
-F 0 "#PWR016" H 8100 3300 50  0001 C CNN
-F 1 "+3.3V" H 8115 3623 50  0000 C CNN
-F 2 "" H 8100 3450 50  0001 C CNN
-F 3 "" H 8100 3450 50  0001 C CNN
-	1    8100 3450
-	1    0    0    -1  
+P 8400 4000
+F 0 "#PWR016" H 8400 3850 50  0001 C CNN
+F 1 "+3.3V" V 8415 4128 50  0000 L CNN
+F 2 "" H 8400 4000 50  0001 C CNN
+F 3 "" H 8400 4000 50  0001 C CNN
+	1    8400 4000
+	0    -1   -1   0   
 $EndComp
 $Comp
 L power:GND #PWR017
 U 1 1 5F5FB8F8
-P 8100 3850
-F 0 "#PWR017" H 8100 3600 50  0001 C CNN
-F 1 "GND" H 8105 3677 50  0000 C CNN
-F 2 "" H 8100 3850 50  0001 C CNN
-F 3 "" H 8100 3850 50  0001 C CNN
-	1    8100 3850
+P 8350 3300
+F 0 "#PWR017" H 8350 3050 50  0001 C CNN
+F 1 "GND" H 8355 3127 50  0000 C CNN
+F 2 "" H 8350 3300 50  0001 C CNN
+F 3 "" H 8350 3300 50  0001 C CNN
+	1    8350 3300
 	1    0    0    -1  
 $EndComp
 Wire Wire Line
-	8200 3800 8100 3800
-Wire Wire Line
-	8100 3800 8100 3850
-Wire Wire Line
 	5900 3550 7450 3550
 Wire Wire Line
-	7750 3550 7750 3600
-Wire Wire Line
-	7750 3600 8200 3600
-Wire Wire Line
 	5900 3750 7450 3750
-Wire Wire Line
-	7750 3750 7750 3700
-Wire Wire Line
-	7750 3700 8200 3700
-Text Label 8150 3600 2    50   ~ 0
+Text Label 8450 3900 2    50   ~ 0
 RXD
-Text Label 8150 3700 2    50   ~ 0
+Text Label 8300 3600 0    50   ~ 0
 TXD
 $Comp
 L Device:R_Small R7
@@ -288,8 +272,6 @@ F 3 "~" H 7550 3750 50  0001 C CNN
 	1    7550 3750
 	0    1    1    0   
 $EndComp
-Wire Wire Line
-	7650 3750 7750 3750
 $Comp
 L Device:R_Small R4
 U 1 1 5F607D75
@@ -722,4 +704,28 @@ Wire Wire Line
 	5900 3850 7150 3850
 Wire Wire Line
 	5900 3950 7100 3950
+Wire Wire Line
+	8300 3700 8500 3700
+Wire Wire Line
+	8500 3800 8300 3800
+Text Label 8300 3700 0    50   ~ 0
+IO0
+Text Label 8300 3800 0    50   ~ 0
+~RST
+Wire Wire Line
+	8350 3300 8500 3300
+Wire Wire Line
+	8500 3300 8500 3500
+Wire Wire Line
+	7900 3750 7900 3600
+Wire Wire Line
+	7900 3600 8500 3600
+Wire Wire Line
+	7650 3750 7900 3750
+Wire Wire Line
+	7750 3550 7750 3900
+Wire Wire Line
+	7750 3900 8500 3900
+Wire Wire Line
+	8400 4000 8500 4000
 $EndSCHEMATC
