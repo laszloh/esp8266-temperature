@@ -32,16 +32,17 @@
 #include <ArduinoLog.h>
 
 #include "setup_ap.h"
-#include "wifi.h"
+#include "settings.h"
 
 #define LOG_AS  "[AP] "
 
 #define SETUP_TIME_SEC 180
 
-WiFiManager wm;
+static WiFiManager wm;
 
 bool setup_ap() {
     bool result;
+    NvsSettings& settings = NvsSettings::instance();
 
 #ifndef DISABLE_LOGGING
     wm.debugPlatformInfo();
@@ -52,8 +53,10 @@ bool setup_ap() {
     std::vector<const char*> menu = {"wifi","info","param","update","sep","restart","exit"};
     wm.setMenu(menu);
 
+    settings.addParameter(wm);
+
     wm.setConfigPortalTimeout(SETUP_TIME_SEC);
-    wm.setConnectTimeout(DEFAULT_WIFI_TIMEOUT);
+    wm.setConnectTimeout(NvsSettings::instance().config().wifi_timeout);
 
     result = wm.startConfigPortal();
 
@@ -62,9 +65,7 @@ bool setup_ap() {
         Log.notice(F(LOG_AS "Connected to wifi. Saving setings and restarting" CR));
         WiFi.preinitWiFiOff();
 
-        WiFiManagerParameter **params = wm.getParameters();
-        for(uint16_t i=0;i<wm.getParametersCount();i++)
-            params[i]->saveParameter();
+        settings.saveParameter(wm);
 
         Log.notice(F(LOG_AS "Resetting ESP..." CR));
         Serial.flush();

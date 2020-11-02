@@ -27,7 +27,11 @@
  */
 #pragma once
 
-constexpr size_t configSize = JSON_OBJECT_SIZE(13) + 437;
+#include <ArduinoJson.h>
+#include <WifiManager.h>
+
+constexpr size_t paramCount = 13;
+constexpr size_t configSize = JSON_OBJECT_SIZE(paramCount) + 437;
 
 class NvsSettings {
 public:
@@ -41,9 +45,12 @@ public:
     }
 
     bool loadConfig(bool force = false);
-    bool loadConfig(JsonDocument doc, bool force = false);
+    bool loadConfig(const JsonDocument& doc, bool force = false);
    
     void saveConfig() const;
+
+    void addParameter(WiFiManager& wm);
+    void saveParameter(WiFiManager& wm);
     
     bool isOpen() { return opened; }
     
@@ -64,16 +71,17 @@ public:
 		uint32_t system_sleep;
 	};
 
-    Config& config() { return config; }
-    const Config& config() { return config; }
+    const Config& config() const { return _config; }
 
 private:
     NvsSettings();
     NvsSettings(const NvsSettings &);
     NvsSettings& operator = (const NvsSettings&);
 
+    void serialize(const JsonDocument& doc) const;
+
     bool opened;
 	int lastError;
 	
-	Config config;
+	Config _config;
 };

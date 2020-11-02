@@ -49,8 +49,8 @@ private:
     Main():settings(NvsSettings::instance()) {
         if(!settings.config().system_led) {
             // disable led
-            pinMode(BUILTIN_LED, OUTPUT);
-            digitalWrite(BUILTIN_LED, HIGH);
+            pinMode(LED_BUILTIN, OUTPUT);
+            digitalWrite(LED_BUILTIN, HIGH);
         }
     }
     Main(const Main&);

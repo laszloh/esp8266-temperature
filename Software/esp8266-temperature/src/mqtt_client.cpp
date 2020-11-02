@@ -41,7 +41,6 @@
 
 static WiFiClient wifiClient;
 static PubSubClient mqtt(wifiClient);
-static RtcMemory& rtc = RtcMemory::instance();
 
 #define PH_MAC  "{m}"
 #define PH_ID   "{i}"
@@ -49,8 +48,7 @@ static RtcMemory& rtc = RtcMemory::instance();
 
 MqttClient::MqttClient() : 
     rtc(RtcMemory::instance()), 
-    settings(NvsSettings::instance()),
-
+    settings(NvsSettings::instance())
 {
     String id = settings.config().mqtt_id;
     id.replace(F(PH_MAC), String(ESP.getChipId(), 16));
@@ -95,7 +93,7 @@ bool MqttClient::connect() {
             return false;
         }
     }
-    rtc.setMqttServerIp(wifiClient.remote());
+    rtc.setMqttServerIp(wifiClient.remoteIP());
 
     mqtt.setCallback(callback);
     mqtt.setBufferSize(1024);
@@ -144,7 +142,7 @@ void MqttClient::sendStatus(uint16_t voltage) {
 
     doc["wakeTime"] = rtc.getLastWakeDuration();;
     doc["Voltage"] = voltage;
-    doc["fingerprint"] = settings.getFingerprint();
+    doc["fingerprint"] = settings.config().fingerprint;
 
     JsonObject Memory = doc.createNestedObject(F("Memory"));
     Memory["StackFree"] = ESP.getFreeContStack();

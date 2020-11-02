@@ -124,8 +124,10 @@ void setup() {
         }
     }
 
+    nvs.loadConfig();
+
     // load config from EEPROM
-    if(nvs.isFirstRun() || forceConfig) {
+    if(nvs.config().fingerprint == 0 || forceConfig) {
         // If we are strting up for the first time (or lost our nvs section)
         rtc.setReconfigure(false);
         rtc.WriteRtcMemory();
@@ -134,7 +136,6 @@ void setup() {
             Log.error(F(LOG_AS "Setup AP timed out. Going to forced sleep."));
             enter_sleep(true);
         }
-        nvs.setFirstRun(false);
     }
 
     // boot up the wifi to send the data

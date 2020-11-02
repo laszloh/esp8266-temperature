@@ -29,8 +29,6 @@
 
 #include <WiFiManager.h>
 
-extern WiFiManager wm;
-
 bool setup_ap();
 
 
