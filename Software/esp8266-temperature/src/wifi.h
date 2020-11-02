@@ -33,14 +33,7 @@
 
 #include "rtc.h"
 #include "settings.h"
-#include "wifi_priv.h"
 
-#define WIFI_SSID_LEN 33
-#define WIFI_PWD_LEN 64
-
-#define DEFAULT_WIFI_SSID       PRIVATE_WIFI_SSID
-#define DEFAULT_WIFI_PASS       PRIVATE_WIFI_PASS
-#define DEFAULT_WIFI_TIMEOUT    15000
 
 class WifiModule {
 public:
@@ -56,12 +49,12 @@ public:
             WiFi.config(rtc.getIp(), rtc.getGateway(), rtc.getMask(), rtc.getDns());
             uint8_t bssid[6];
             rtc.getBssid(bssid);
-            WiFi.begin(ssid, pass, rtc.getChannel(), bssid);
+            WiFi.begin(settings.config().wifi_ssid.c_str(), settings.config().wifi_pass.c_str(), rtc.getChannel(), bssid);
         } else {
             // no data in rtc, normal startup
             Log.notice(F("[WiFi] " "RTC config: NOT found" CR));
             WiFi.forceSleepWake();
-            WiFi.begin(ssid, pass);
+            WiFi.begin(settings.config().wifi_ssid.c_str(), settings.config().wifi_pass.c_str());
         }
     }
 
@@ -71,58 +64,24 @@ public:
 
     bool connect() {
         uint32_t curMillis = millis();
+        uint32_t timeout = settings.config().wifi_timeout;
 
         while(!isConnected()) {
-            if(millis() - curMillis > timeout.get()) 
+            if(millis() - curMillis > timeout) 
                 return false;
             delay(10);
         }
         return true;
     }
 
-	void updateSettings(const JsonDocument &jsonDoc) {
-        ssid = jsonDoc["wifi-ssid"].as<const char*>();
-        pass = jsonDoc["wifi-pass"].as<const char*>();
-        timeout = jsonDoc["wifi-timeout"].as<uint32_t>();
-    }
-
 private:
     WifiModule(): 
         rtc(RtcMemory::instance()), 
-        settings(NvsSettings::instance()),
-        ssid(DEFAULT_WIFI_SSID, settings, "wifi-ssid"),
-        pass(DEFAULT_WIFI_PASS, settings, "wifi-pass"),
-        timeout(DEFAULT_WIFI_TIMEOUT, settings, "wifi-timeout"),
-        pTimeout(timeout.getID(), "Wifi Timeout", timeout, true)
-        {
-            wm.addParameter(&pTimeout);
+        settings(NvsSettings::instance()) {
         }
     WifiModule(const WifiModule &);
     WifiModule & operator = (const WifiModule&);
 
     RtcMemory& rtc;
     NvsSettings& settings;
-    NvsValue< StrValue<WIFI_SSID_LEN> > ssid;
-    NvsValue< StrValue<WIFI_PWD_LEN> > pass;
-    NvsValue< IntValue<uint32_t> > timeout;
-
-    class Parameter : public WiFiManagerParameter {
-    public:
-        Parameter(const char *id, const char *label, const char *defaultValue, bool integer, int length = 10) : 
-            WiFiManagerParameter(id, label, defaultValue, length) {
-            if(integer)
-                init(id, label, defaultValue, length, " type='number'", WFM_LABEL_BEFORE);
-        }
-
-        void saveParameter() override {
-            WifiModule& w = WifiModule::instance();
-            if(strcmp(w.timeout.getID(), getID()) == 0) {
-                w.timeout = atoi(getValue());
-            }
-            w.ssid = wm.getWiFiSSID().c_str();
-            w.pass = wm.getWiFiPass().c_str();
-        }
-    };
-
-    Parameter pTimeout;
 };

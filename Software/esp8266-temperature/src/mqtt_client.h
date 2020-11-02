@@ -32,31 +32,12 @@
 #include "settings.h"
 #include "rtc.h"
 
-#include "wifi_priv.h"
-
-#define MQTT_HOST_LEN 64
-#define MQTT_LOGIN_LEN 32
-#define MQTT_PASSWORD_LEN 32
-#define MQTT_TOPIC_LEN 64
-#define MQTT_ID_LEN 32
-
-#define DEFAULT_MQTT_HOST   "192.168.88.12"
-#define DEFAULT_MQTT_TOPIC  "revai/sensors/{i}/{t}"
-#define DEFAULT_MQTT_PORT   1883
-#define DEFAULT_MQTT_LOGIN  PRIVATE_MQTT_LOGIN
-#define DEFAULT_MQTT_PASS   PRIVATE_MQTT_PASS
-#define DEFAULT_MQTT_ID     "ESP{m}"
-
-#define DEFAULT_MQTT_TIMEOUT	2000
-
 class MqttClient {
 public:
     static MqttClient& instace() {
         static MqttClient instace;
         return instace;
     }
-	
-	void updateSettings(const JsonDocument &jsonDoc);
 	
     void begin();
     bool connect();
@@ -73,56 +54,10 @@ private:
 
     RtcMemory& rtc;
     NvsSettings& settings;
-	
-	NvsValue< StrValue<MQTT_HOST_LEN> > host;
-	NvsValue< IntValue<uint16_t> > port;
-	NvsValue< StrValue<MQTT_LOGIN_LEN> > login;
-	NvsValue< StrValue<MQTT_PASSWORD_LEN> > pass;
-	NvsValue< StrValue<MQTT_TOPIC_LEN> > topic;
-	NvsValue< StrValue<MQTT_ID_LEN> > id;
-	NvsValue< IntValue<uint32_t> > timeout;
 
     char clientId[32];
 
     int8_t getRssiQuality(const int32_t rssi) const;
     static void callback(char* topic, uint8_t* payload, uint16_t length);
-
-    class Parameter : public WiFiManagerParameter {
-    public:
-        Parameter(const char *id, const char *label, const char *defaultValue, bool integer = false, int length = 10) : 
-            WiFiManagerParameter(id, label, defaultValue, length) {
-            if(integer)
-                init(id, label, defaultValue, length, " type='number'", WFM_LABEL_BEFORE);
-        }
-
-        void saveParameter() override {
-            MqttClient& c = MqttClient::instace();
-            const char *id = getID();
-
-            if(strcmp(c.host.getID(), id) == 0) {
-                c.host = getValue();
-            } else if(strcmp(c.port.getID(), id) == 0) {
-                c.port = atoi(getValue());
-            } else if(strcmp(c.login.getID(), id) == 0) {
-                c.login = getValue();
-            } else if(strcmp(c.pass.getID(), id) == 0) {
-                c.pass = getValue();
-            } else if(strcmp(c.topic.getID(), id) == 0) {
-                c.topic = getValue();
-            } else if(strcmp(c.id.getID(), id) == 0) {
-                c.id = getValue();
-            } else if(strcmp(c.timeout.getID(), id) == 0) {
-                c.timeout = atoi(getValue());                
-            }
-        }
-    };
-
-    Parameter pHost;
-    Parameter pPort;
-    Parameter pLogin;
-    Parameter pPass;
-    Parameter pTopic;
-    Parameter pId;
-    Parameter pTimeout;
 };
 

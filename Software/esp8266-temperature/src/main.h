@@ -27,9 +27,9 @@
  */
 #pragma once
 
+#include <Arduino.h>
 #include "settings.h"
 
-#define DEFAULT_SLEEP_TIME  30
 
 class Main {
     friend void setup();
@@ -42,19 +42,17 @@ public:
     }
 
     uint32_t getSleepTime() const {
-        return sleep.get();
-    }
-
-	void updateSettings(const JsonDocument &jsonDoc) {
-        sleep = s_to_us(jsonDoc["sleep-time"].as<uint32_t>());
+        return s_to_us(settings.config().system_sleep);
     }
 
 private:
-    Main() :
-        settings(NvsSettings::instance()),
-        sleep(s_to_us(DEFAULT_SLEEP_TIME), settings, "sleep-time"),
-        pSleep(sleep.getID(), "Unit Sleep", sleep, true)
-        { }
+    Main():settings(NvsSettings::instance()) {
+        if(!settings.config().system_led) {
+            // disable led
+            pinMode(BUILTIN_LED, OUTPUT);
+            digitalWrite(BUILTIN_LED, HIGH);
+        }
+    }
     Main(const Main&);
     Main& operator = (const Main&);
 
@@ -63,23 +61,4 @@ private:
     }
     
     NvsSettings& settings;
-    NvsValue< IntValue<uint32_t> > sleep;
-
-    class Parameter : public WiFiManagerParameter {
-    public:
-        Parameter(const char *id, const char *label, const char *defaultValue, bool integer, int length = 10) : 
-            WiFiManagerParameter(id, label, defaultValue, length) {
-            if(integer)
-                init(id, label, defaultValue, length, " type='number'", WFM_LABEL_BEFORE);
-        }
-
-        void saveParameter() override {
-            Main& m = Main::instance();
-            if(strcmp(m.sleep.getID(), getID()) == 0) {
-                m.sleep = atoi(getValue());
-            }
-        }
-    };
-
-    Parameter pSleep;
 };

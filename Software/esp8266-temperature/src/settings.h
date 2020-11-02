@@ -27,8 +27,7 @@
  */
 #pragma once
 
-#include "setup_ap.h"
-#include "nvs.h"
+constexpr size_t configSize = JSON_OBJECT_SIZE(13) + 437;
 
 class NvsSettings {
 public:
@@ -37,26 +36,36 @@ public:
         return instance;
     }
 
-    bool open(const char *name, void *ptr, size_t dataSize);
-    void save(const char *name, const void *ptr, size_t dataSize);
-
-    esp_err_t getLastError() const {
+    int getLastError() const {
         return lastError;
     }
 
-    uint32_t getFingerprint();
-    void setFingerprint(uint32_t fp);
+    bool loadConfig(bool force = false);
+    bool loadConfig(JsonDocument doc, bool force = false);
+   
+    void saveConfig() const;
+    
+    bool isOpen() { return opened; }
+    
+    // config access by reference
+	struct Config {
+		uint32_t fingerprint;
+		String wifi_ssid;
+		String wifi_pass;
+		uint32_t wifi_timeout;
+		String mqtt_host;
+		uint32_t mqtt_port;
+		String mqtt_login;
+		String mqtt_pass;
+		String mqtt_topic;
+		String mqtt_id;
+		uint32_t mqtt_timeout;
+		bool system_led;
+		uint32_t system_sleep;
+	};
 
-    bool isFirstRun();
-    void setFirstRun(bool v);
-
-    bool isOpened() const {
-        return opened;
-    }
-
-    nvs_handle getHandle() const {
-        return handle;
-    }
+    Config& config() { return config; }
+    const Config& config() { return config; }
 
 private:
     NvsSettings();
@@ -64,127 +73,7 @@ private:
     NvsSettings& operator = (const NvsSettings&);
 
     bool opened;
-    nvs_handle handle;
-    esp_err_t lastError;
-};
-
-template <size_t N>
-class StrValue {
-    char value[N+1];
-public:
-    StrValue() {
-        value[0] = 0;
-    }
-    StrValue(const char* v) {
-        if(v)
-            strncpy(value, v, N);
-        else
-            value[0] = 0;
-    }
-
-    size_t size() const {
-        return N;
-    }
-
-    const void *val_ptr() const {
-        return &value;
-    }
-
-    bool operator == (const StrValue& v) {
-        return (strcmp(value, v.value) == 0);
-    }
-
-    bool operator != (const StrValue& v) const {
-        return (strcmp(value, v.value) != 0);
-    }
-
-    void operator = (const StrValue& v) {
-        strncpy(value, v.value, N);
-    }
-
-    operator const char*() const {
-        return value;
-    }
-
-};
-
-template <typename N>
-class IntValue {
-    N value;
-
-public:
-    IntValue() {
-        value = 0;
-    }
-    IntValue(const N v) {
-        value = v;
-    }
-
-    size_t size() const {
-        return sizeof(N);
-    }
-
-    const void *val_ptr() const {
-        return &value;
-    }
-
-    bool operator == (const IntValue& v) const {
-        return value == v.value;
-    }
-
-    bool operator != (const IntValue& v) const {
-        return ! (*this) == v;
-    }
-
-    void operator = (const IntValue& v) {
-        value = v.value;
-    }
-
-    operator const char*() const {
-        static char buffer[10];
-        snprintf(buffer, sizeof(buffer), "%d", value);
-        return buffer;
-    }
-
-    operator N() const {
-        return value;
-    }
-
-};
-
-template <class T>
-class NvsValue {
-    T value;
-    NvsSettings& s;
-    const char *id;
-
-public:
-    NvsValue(const T& _value, NvsSettings& _s, const char *_id) 
-    : value(_value), s(s), id(_id) {
-        s.open(id, &value, sizeof(value));
-    }
-
-    const char* getID() const {
-        return id;
-    }
-
-    operator const T& () const {
-        return value;
-    }
-
-    // commit the variable to the backend
-    const T& operator = (const T& v) { 
-        if(v != value)
-            s.save(id, value.val_ptr(), value.size());
-        value = v;
-        return value; 
-    }
-
-    const T& get() const {
-        return value;
-    }
-
-    operator const char*() const {
-        return value;
-    }
+	int lastError;
+	
+	Config config;
 };

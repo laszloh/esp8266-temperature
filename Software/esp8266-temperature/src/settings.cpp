@@ -28,95 +28,119 @@
 
 #include <Arduino.h>
 #include <ArduinoLog.h>
+#include <FS.h>
+#include <LittleFS.h>
 
 #include "settings.h"
-#include "nvs_flash.h"
+#include "setup.h"
 
 #define LOG_AS "[FLASH] "
 
-extern "C" uint32_t _FS_start;
-extern "C" uint32_t _FS_end;
+static constexpr const char *filename = "config.json";
 
-static const uint32_t sector_start = ((uint32_t)&_FS_start - 0x40200000) / SPI_FLASH_SEC_SIZE;
-static const uint32_t sector_count = (((uint32_t)&_FS_end - 0x40200000) / SPI_FLASH_SEC_SIZE) - sector_start;
-
-esp_err_t nvs_flash_erase_partition(const char *part_name) {
-    for(uint32_t i = 0;i<sector_count;i++) {
-        auto err = spi_flash_erase_sector(sector_start + i);
-        if(err != ESP_OK)
-            return err;
-    }
-    return ESP_OK;
+NvsSettings::NvsSettings(): opened(false), lastError(0) {
+	LittleFS.begin();
+	loadConfig();
 }
 
-NvsSettings::NvsSettings(): opened(false), handle(0) {
-    Log.verbose(F(LOG_AS "Opening Non-Volatile Storage (NVS) handle... " CR));
-    lastError = nvs_flash_init_custom("nvs", sector_start, sector_count);
-    if (lastError == ESP_ERR_NVS_NO_FREE_PAGES) {
-        // NVS partition was truncated and needs to be erased
-        // Retry nvs_flash_init
-        if(nvs_flash_erase()!=ESP_OK) {
-            Log.error(F(LOG_AS "Failed to format flash" CR));
-            return;
-        }
-        lastError = nvs_flash_init_custom("nvs", sector_start, sector_count);
+bool NvsSettings::loadConfig(bool force) {
+    if(opened && !force) {
+        Log.verbose(F(LOG_AS "Settings are already loaded, ignoring..."));
+        lastError = 0;
+        return false;
     }
-    if(lastError!=ESP_OK) {
-        Log.error(F(LOG_AS "Failed to init nvs region" CR));
+    
+	File cfgData = LittleFS.open(filename);
+	if(!cfgData) {
+		lastError = -1;
+        return false;
+	} else {
+		StaticJsonDocument<configSize> doc;
+
+		// Deserialize the JSON document
+		DeserializationError error = deserializeJson(doc, cfgData);
+		if (error)
+			lastError = -1;
+
+        loadConfig(doc);
+
+		// Close the file (Curiously, File's destructor doesn't close the file)
+		file.close();
+	}
+    return true;
+}
+
+bool NvsSettings::loadConfig(const JsonDocument& doc, bool force) {
+    uint32_t fingerprint = doc["fingerprint"] | 0;
+    bool newer = fingerprint > config.fingerprint;
+    
+    if(opened && !force && !newer) {
+        Log.verbose(F(LOG_AS "Settings are already loaded, ignoring..."));
+        lastError = 0;
+        return false;
+    }
+    Log.verbose(F(LOG_AS "Loading file due to: forced: %B, newer: %B"), forced, newer);
+
+    // Copy values from the JsonDocument to the Config
+    config.fingerprint = fingerprint;
+    
+    // read the wifi settings
+    config.wifi_ssid = String(doc["wifi-ssid"] | DEFAULT_WIFI_SSID);
+    config.wifi_pass = String(doc["wifi-pass"] | DEFAULT_WIFI_PASS);
+    config.wifi_timeout = doc["wifi-timeout"] | DEFAULT_WIFI_TIMEOUT;
+    
+    // read the mqtt settings
+    config.mqtt_host = String(doc["mqtt-host"] | DEFAULT_MQTT_HOST);
+    config.mqtt_port = doc["mqtt-port"] | DEFAULT_MQTT_PORT;
+    config.mqtt_login = String(doc["mqtt-login"] | DEFAULT_MQTT_LOGIN);
+    config.mqtt_pass = String(doc["mqtt-pass"] | DEFAULT_MQTT_PASS);
+    config.mqtt_topic = String(doc["mqtt-topic"] | DEFAULT_MQTT_TOPIC);
+    config.mqtt_id = String(doc["mqtt-id"] | DEFAULT_MQTT_ID);
+    config.mqtt_timeout = doc["mqtt-port"] | DEFAULT_MQTT_TIMEOUT;
+
+    // read the system settings
+    config.system_led = doc["system-led"] | true;
+    config.system_sleep = doc["system-sleep"] | DEFAULT_SYSTEM_SLEEP;
+    
+    return true;
+}
+
+void NvsSettings::saveConfig() const {
+    StaticJsonDocument<configSize> doc;
+    
+	File file = LittleFS.open(filename, FILE_WRITE);
+    if (!file) {
+        Log.error(F(LOG_AS "Failed to open config file for writing"));
         return;
     }
-    lastError = nvs_open("storage", NVS_READWRITE, &handle);
-    if (lastError != ESP_OK) {
-        Log.error(F(LOG_AS "Error (%X) opening NVS handle!" CR), lastError);
+
+    // serialze the settings fingerprint
+    doc["fingerprint"] = config.fingerprint;
+
+    // serialze the wifi config
+    doc["wifi-ssid"] = config.wifi_ssid;
+    doc["wifi-pass"] = config.wifi_pass;
+    doc["wifi-timeout"] = config.wifi_timeout;
+    
+    // serialze the mqtt config
+    doc["mqtt-host"] = config.mqtt_host;
+    doc["mqtt-port"] = config.mqtt_port;
+    doc["mqtt-login"] = config.mqtt_login;
+    doc["mqtt-pass"] = config.mqtt_pass;
+    doc["mqtt-topic"] = config.mqtt_topic;
+    doc["mqtt-id"] = config.mqtt_id;
+    doc["mqtt-port"] = config.mqtt_timeout;
+
+    // serialze the system config
+    doc["system-led"] = config.system_led;
+    doc["system-sleep"] = config.system_sleep;
+    
+    // Serialize JSON to file
+    if (serializeJson(doc, file) == 0) {
+        Log.error(F(LOG_AS "Failed to write to config file"));
     }
-    opened = (lastError == ESP_OK);
+
+    // Close the file
+    file.close();
 }
 
-bool NvsSettings::open(const char *name, void *ptr, size_t dataSize) {
-    if(dataSize <= 8) {
-        // we can load the data as a primitive
-        uint64_t data;
-        lastError = nvs_get_u64(handle, name, &data);
-        if(lastError != ESP_OK)
-            return false;
-        memcpy(ptr, &data, dataSize);
-    } else {
-        // we saved it as a blob
-        size_t size = dataSize;
-        lastError = nvs_get_blob(handle, name, ptr, &size);
-    }
-    return (lastError == ESP_OK);
-}
-
-void NvsSettings::save(const char *name, const void *ptr, size_t dataSize) {
-    if(dataSize <= 8) {
-        // save it as a primitive
-        uint64_t data;
-        memcpy(&data, ptr, dataSize);
-        lastError = nvs_set_u64(handle, name, data);
-    } else {
-        // save it as a blob
-        lastError = nvs_set_blob(handle, name, ptr, dataSize);
-    }
-}
-
-uint32_t NvsSettings::getFingerprint() {
-    uint32_t fp = 0;
-    lastError = nvs_get_u32(handle, "sett-print", &fp);
-    return fp;
-}
-
-void NvsSettings::setFingerprint(uint32_t fp) {
-    lastError = nvs_set_u32(handle, "sett-print", fp);
-}
-
-bool NvsSettings::isFirstRun() {
-    uint8_t firstRun = 1;
-    lastError = nvs_get_u8(handle, "sett-first", &firstRun);
-    return (firstRun);
-}
-
-void NvsSettings::setFirstRun(bool v) {
-    uint8_t firstRun = (v) ? 1 : 0;
-    lastError = nvs_set_u8(handle, "sett-first", firstRun);
-}

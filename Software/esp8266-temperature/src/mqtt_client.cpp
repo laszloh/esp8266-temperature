@@ -50,105 +50,62 @@ static RtcMemory& rtc = RtcMemory::instance();
 MqttClient::MqttClient() : 
     rtc(RtcMemory::instance()), 
     settings(NvsSettings::instance()),
-	host(DEFAULT_MQTT_HOST, settings, "mqtt-host"),
-	port(DEFAULT_MQTT_PORT, settings, "mqtt-port"),
-	login(DEFAULT_MQTT_LOGIN, settings, "mqtt-login"),
-	pass(DEFAULT_MQTT_PASS, settings, "mqtt-pass"),
-	topic(DEFAULT_MQTT_TOPIC, settings, "mqtt-topic"),
-	id(DEFAULT_MQTT_ID, settings, "mqtt-id"),
-	timeout(DEFAULT_MQTT_TIMEOUT, settings, "mqtt-timeout"),
-    pHost(host.getID(), "MQTT Host", host),
-    pPort(port.getID(), "MQTT Host", port, true),
-    pLogin(login.getID(), "MQTT Host", login),
-    pPass(pass.getID(), "MQTT Host", pass),
-    pTopic(topic.getID(), "MQTT Host", topic),
-    pId(id.getID(), "MQTT Host", id),
-    pTimeout(timeout.getID(), "MQTT Host", timeout, true)
 
 {
-    String id = id;
+    String id = settings.config().mqtt_id;
     id.replace(F(PH_MAC), String(ESP.getChipId(), 16));
-    strncpy(clientId, id.c_str(), sizeof(clientId));
-
-    wm.addParameter(&pHost);
-    wm.addParameter(&pPort);
-    wm.addParameter(&pLogin);
-    wm.addParameter(&pPass);
-    wm.addParameter(&pTopic);
-    wm.addParameter(&pId);
-    wm.addParameter(&pTimeout);
+    strlcpy(clientId, id.c_str(), sizeof(clientId));
 }
 
 void MqttClient::begin() {
+    uint16_t port = settings.config().mqtt_port;
+    
     wifiClient.setNoDelay(true);
     if(rtc.isRtcValid() && rtc.getMqttServerIp().isSet())
-        mqtt.setServer(rtc.getMqttServerIp(), port.get());
+        mqtt.setServer(rtc.getMqttServerIp(), port);
     else
-        mqtt.setServer(host, port.get());
+        mqtt.setServer(settings.config().mqtt_host.c_str(), port);
     mqtt.setSocketTimeout(1);
 }
 
 void MqttClient::callback(char* topic, uint8_t* payload, uint16_t length) {
-    bool reboot = false;
     NvsSettings& settings = NvsSettings::instance();
-    uint32_t fingerprint = settings.getFingerprint();
     StaticJsonDocument<200> jsonDoc;
+
     Log.verbose(F(LOG_AS "Got a new setup topic" CR));
 
     deserializeJson(jsonDoc, payload, length);
-    Log.verbose(F(LOG_AS "topic-fingerprint: %d our fingerprint: %d" CR), jsonDoc["fingerprint"].as<int>(), fingerprint);
-
-    if(fingerprint < jsonDoc["fingerprint"]) {
-        Log.verbose(F(LOG_AS "updating settings" CR));
-		// Wifi setup
-		WifiModule::instance().updateSettings(jsonDoc);
-		// MQTT
-		MqttClient::instace().updateSettings(jsonDoc);
-		// System
-		Main::instance().updateSettings(jsonDoc);
-        // save the new settings fingerprint
-        settings.setFingerprint(jsonDoc["fingerprint"]);
-        reboot = true;
-    }
-
-    if(reboot) {
-        Log.notice(F(LOG_AS "New settings received. Rebooting..." CR));
+    if(settings.loadConfig(jsonDoc)) {
+        Log.notice(F(LOG_AS "New settings received. Saving and rebooting..." CR));
+        settings.saveConfig();
+        
         Serial.flush();
         ESP.reset();
     }
 }
 
-void MqttClient::updateSettings(const JsonDocument &jsonDoc) {
-    host = jsonDoc["mqtt-host"].as<const char*>();
-    port = jsonDoc["mqtt-port"].as<uint16_t>();
-    login = jsonDoc["mqtt-login"].as<const char*>();
-    pass = jsonDoc["mqtt-pass"].as<const char*>();
-    topic = jsonDoc["mqtt-topic"].as<const char*>();
-    id = jsonDoc["mqtt-id"].as<const char*>();
-    timeout = jsonDoc["mqtt-timeout"].as<uint32_t>();
-}
-
 bool MqttClient::connect() {
     uint32_t start_ms = millis();
+    const uint32_t timeout = settings.config().mqtt_timeout;
 
     while(!mqtt.connected()) {
-        mqtt.connect(clientId, login, pass, 0, 0, 0, 0, false);
-        if((millis() - start_ms) > timeout.get()) {
+        mqtt.connect(clientId, settings.config().mqtt_login.c_str(), settings.config().mqtt_pass.c_str(), 0, 0, 0, 0, false);
+        if((millis() - start_ms) > timeout) {
             Log.error(F(LOG_AS "Connection timed out at %l ms" CR), millis());
             return false;
         }
     }
-    rtc.setMqttServerIp(wifiClient.remotePort());
+    rtc.setMqttServerIp(wifiClient.remote());
 
     mqtt.setCallback(callback);
     mqtt.setBufferSize(1024);
 
-    String topic = topic;
+    String topic = settings.config().mqtt_topic.c_str();
     topic.replace(F(PH_ID), clientId);
     topic.replace(F(PH_TYPE), F("setup"));
     mqtt.subscribe(topic.c_str());
 
-    topic = topic;
+    topic = settings.config().mqtt_topic.c_str();
     topic.replace(F(PH_ID), F("all"));
     topic.replace(F(PH_TYPE), F("setup"));
     mqtt.subscribe(topic.c_str());
@@ -161,7 +118,7 @@ void MqttClient::loop() {
 }
 
 void MqttClient::sendMeasurement(float temperature, float humidity, float pressure) {
-    String topic = topic;
+    String topic = settings.config().mqtt_topic.c_str();
     char message[512];
     DynamicJsonDocument jsonDoc(1024);
 
@@ -180,7 +137,7 @@ void MqttClient::sendMeasurement(float temperature, float humidity, float pressu
 }
 
 void MqttClient::sendStatus(uint16_t voltage) {
-    String topic = topic;
+    String topic = settings.config().mqtt_topic.c_str();
     char message[512];
     DynamicJsonDocument doc(1024);
     int32_t rssi = WiFi.RSSI();
