@@ -46,6 +46,8 @@ public:
 
     bool loadConfig(bool force = false);
     bool loadConfig(const JsonDocument& doc, bool force = false);
+    
+    void loadDefaults();
    
     void saveConfig() const;
 

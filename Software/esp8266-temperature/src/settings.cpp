@@ -45,6 +45,8 @@ NvsSettings::NvsSettings(): opened(false), lastError(0) {
 }
 
 bool NvsSettings::loadConfig(bool force) {
+    StaticJsonDocument<configSize> doc;
+    
     if(opened && !force) {
         Log.verbose(F(LOG_AS "Settings are already loaded, ignoring..." CR));
         lastError = 0;
@@ -52,20 +54,58 @@ bool NvsSettings::loadConfig(bool force) {
     }
     
 	File file = LittleFS.open(filename, "r");
-    StaticJsonDocument<configSize> doc;
+    if(!file) {
+        Log.warning(F(LOG_AS "Config file not found. Loading default settings..." CR));
+        loadDefaults();
+    } else {
+        Log.notice(F(LOG_AS "Loading config from file %s" CR), filename);
 
-    // Deserialize the JSON document
-    DeserializationError error = deserializeJson(doc, file);
-    if (error) {
-        Log.error(F(LOG_AS "Error Deserializing: %s" CR), error.c_str());
-        lastError = -1;
+        // Deserialize the JSON document
+        DeserializationError error = deserializeJson(doc, file);
+        if (error) {
+            Log.error(F(LOG_AS "Error Deserializing: %s" CR), error.c_str());
+            lastError = -1;
+        }
+        loadConfig(doc, force);
+
+        // Close the file (Curiously, File's destructor doesn't close the file)
+        file.close();
     }
-
-    loadConfig(doc, force);
-
-    // Close the file (Curiously, File's destructor doesn't close the file)
-    file.close();
     return true;
+}
+
+void NvsSettings::loadDefaults() {
+    // overwrite config and save to backend
+    
+    // reset to default settings
+    _config.fingerprint = 0;
+    
+    // read the wifi settings
+    _config.wifi_ssid = DEFAULT_WIFI_SSID);
+    _config.wifi_pass = DEFAULT_WIFI_PASS);
+    _config.wifi_timeout = DEFAULT_WIFI_TIMEOUT;
+    
+    // read the mqtt settings
+    _config.mqtt_host = DEFAULT_MQTT_HOST);
+    _config.mqtt_port = DEFAULT_MQTT_PORT;
+    _config.mqtt_login = DEFAULT_MQTT_LOGIN);
+    _config.mqtt_pass = DEFAULT_MQTT_PASS);
+    _config.mqtt_topic = DEFAULT_MQTT_TOPIC);
+    _config.mqtt_id = DEFAULT_MQTT_ID);
+    _config.mqtt_timeout = DEFAULT_MQTT_TIMEOUT;
+
+    // read the system settings
+    _config.system_led = true;
+    _config.system_sleep = DEFAULT_SYSTEM_SLEEP;
+    
+    opened = true;
+    saveConfig();
+}
+
+template <typename T>
+inline void write_validiate(T& dst, const T& src) {
+    if(src && src != dst)
+        dst = src;
 }
 
 bool NvsSettings::loadConfig(const JsonDocument& doc, bool force) {
@@ -90,22 +130,63 @@ bool NvsSettings::loadConfig(const JsonDocument& doc, bool force) {
     _config.fingerprint = fingerprint;
     
     // read the wifi settings
-    _config.wifi_ssid = String(doc["wifi-ssid"] | DEFAULT_WIFI_SSID);
-    _config.wifi_pass = String(doc["wifi-pass"] | DEFAULT_WIFI_PASS);
-    _config.wifi_timeout = doc["wifi-timeout"] | DEFAULT_WIFI_TIMEOUT;
-    
+    write_validiate(_config.wifi_ssid, doc["wifi-ssid"]);
+    write_validiate(_config.wifi_pass, doc["wifi-pass"]);
+    write_validiate(_config.wifi_timeout, doc["wifi-timeout"]);
+
     // read the mqtt settings
-    _config.mqtt_host = String(doc["mqtt-host"] | DEFAULT_MQTT_HOST);
-    _config.mqtt_port = doc["mqtt-port"] | DEFAULT_MQTT_PORT;
-    _config.mqtt_login = String(doc["mqtt-login"] | DEFAULT_MQTT_LOGIN);
-    _config.mqtt_pass = String(doc["mqtt-pass"] | DEFAULT_MQTT_PASS);
-    _config.mqtt_topic = String(doc["mqtt-topic"] | DEFAULT_MQTT_TOPIC);
-    _config.mqtt_id = String(doc["mqtt-id"] | DEFAULT_MQTT_ID);
-    _config.mqtt_timeout = doc["mqtt-timeout"] | DEFAULT_MQTT_TIMEOUT;
+    write_validiate(_config.mqtt_host, doc["mqtt-host"]);
+    write_validiate(_config.mqtt_port, doc["mqtt-port"]);
+    write_validiate(_config.mqtt_login, doc["mqtt-login"]);
+    write_validiate(_config.mqtt_pass, doc["mqtt-pass"]);
+    write_validiate(_config.mqtt_topic, doc["mqtt-topic"]);
+    write_validiate(_config.mqtt_id, doc["mqtt-id"]);
+    write_validiate(_config.mqtt_timeout, doc["mqtt-timeout"]);
 
     // read the system settings
-    _config.system_led = doc["system-led"] | true;
-    _config.system_sleep = doc["system-sleep"] | DEFAULT_SYSTEM_SLEEP;
+    _config.system_led = doc["system-led"] | false;
+    write_validiate(_config.system_sleep, doc["system-sleep"]);
+    
+#if 0
+    const char *ssid = doc["wifi-ssid"];
+    if(ssid && _config.wifi_ssid != ssid)
+        _config.wifi_ssid = ssid;
+    const char *wifi_pass = doc["wifi-pass"];
+    if(wifi_pass && _config.wifi_pass != wifi_pass)
+        _config.wifi_pass = wifi_pass;
+    uint32_t timeout = doc["wifi-timeout"];
+    if(timeout && timeout != _config.wifi_timeout)
+        _config.wifi_timeout = timeout;
+    
+    // read the mqtt settings
+    const char *mqtt_host = doc["mqtt-host"];
+    if(mqtt_host && _config.mqtt_host != mqtt_host)
+        _config.mqtt_host = mqtt_host;
+    uint16_t port = doc["mqtt-port"];
+    if(port && port != _config.mqtt_port)
+        _config.mqtt_port = port;
+    const char *mqtt_login = doc["mqtt-login"];
+    if(mqtt_login && _config.mqtt_login != mqtt_login)
+        _config.mqtt_login = mqtt_login;
+    const char *mqtt_pass = doc["mqtt-pass"];
+    if(mqtt_pass && _config.mqtt_pass != mqtt_pass)
+        _config.mqtt_pass = mqtt_pass;
+    const char *mqtt_topic = doc["mqtt-topic"];
+    if(mqtt_topic && _config.mqtt_topic != mqtt_topic)
+        _config.mqtt_topic = mqtt_topic;
+    const char *mqtt_id = doc["mqtt-id"];
+    if(mqtt_id && _config.mqtt_id != mqtt_id)
+        _config.mqtt_id = mqtt_id;
+    timeout = doc["mqtt-timeout"];
+    if(timeout && timeout != _config.wifi_timeout)
+        _config.mqtt_timeout = timeout;
+
+    // read the system settings
+    _config.system_led = doc["system-led"] | false;
+    uint32_t sleep = doc["system-sleep"];
+    if(sleep && sleep != _config.system_sleep)
+        _config.system_sleep = sleep;
+#endif
 
     opened = true;
     
@@ -151,7 +232,7 @@ void NvsSettings::serialize(const JsonDocument& doc) const {
     if ( (x = serializeJson(doc, file)) == 0) {
         Log.error(F(LOG_AS "Failed to write to config file" CR));
     }
-    Log.verbose(F(LOG_AS "Size: %d" CR), x);
+    Log.verbose(F(LOG_AS "Wrote: %d" CR), x);
 
     // Close the file
     file.flush();
@@ -205,7 +286,7 @@ void NvsSettings::saveParameter(WiFiManager& wm) {
     WiFiManagerParameter **params = wm.getParameters();
     size_t count = wm.getParametersCount();
 
-    doc["fingerprint"] = 1;
+    doc["fingerprint"] = _config.fingerprint++;
     Log.notice(F(LOG_AS "Saving parameters..." CR));
     Log.verbose(F(LOG_AS "----------" CR));
 
