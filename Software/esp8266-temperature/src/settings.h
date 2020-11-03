@@ -63,7 +63,7 @@ public:
 		String wifi_pass;
 		uint32_t wifi_timeout;
 		String mqtt_host;
-		uint32_t mqtt_port;
+		uint16_t mqtt_port;
 		String mqtt_login;
 		String mqtt_pass;
 		String mqtt_topic;

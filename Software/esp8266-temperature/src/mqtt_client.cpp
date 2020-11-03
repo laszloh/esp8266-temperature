@@ -51,13 +51,17 @@ MqttClient::MqttClient() :
     settings(NvsSettings::instance())
 {
     String id = settings.config().mqtt_id;
-    id.replace(F(PH_MAC), String(ESP.getChipId(), 16));
+    String mac = String(ESP.getChipId(), 16);
+    mac.toUpperCase();
+    id.replace(F(PH_MAC), mac);
     strlcpy(clientId, id.c_str(), sizeof(clientId));
 }
 
 void MqttClient::begin() {
     uint16_t port = settings.config().mqtt_port;
-    
+
+    Log.verbose(F(LOG_AS "Connecting to \"%s:%d\" as \"%s\"" CR), settings.config().mqtt_host.c_str(), port, clientId);
+
     wifiClient.setNoDelay(true);
     if(rtc.isRtcValid() && rtc.getMqttServerIp().isSet())
         mqtt.setServer(rtc.getMqttServerIp(), port);
@@ -84,7 +88,7 @@ void MqttClient::callback(char* topic, uint8_t* payload, uint16_t length) {
 
 bool MqttClient::connect() {
     uint32_t start_ms = millis();
-    const uint32_t timeout = settings.config().mqtt_timeout;
+    const uint32_t timeout = settings.config().mqtt_timeout * 5;
 
     while(!mqtt.connected()) {
         mqtt.connect(clientId, settings.config().mqtt_login.c_str(), settings.config().mqtt_pass.c_str(), 0, 0, 0, 0, false);
@@ -92,6 +96,7 @@ bool MqttClient::connect() {
             Log.error(F(LOG_AS "Connection timed out at %l ms" CR), millis());
             return false;
         }
+        delay(10);
     }
     rtc.setMqttServerIp(wifiClient.remoteIP());
 

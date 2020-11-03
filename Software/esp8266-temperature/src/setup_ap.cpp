@@ -50,9 +50,6 @@ bool setup_ap() {
 
     Log.notice(F(LOG_AS "Entering captive portal" CR));
 
-    std::vector<const char*> menu = {"wifi","info","param","update","sep","restart","exit"};
-    wm.setMenu(menu);
-
     settings.addParameter(wm);
 
     wm.setConfigPortalTimeout(SETUP_TIME_SEC);
@@ -62,7 +59,7 @@ bool setup_ap() {
 
     if(result) {
         // we are connected
-        Log.notice(F(LOG_AS "Connected to wifi. Saving setings and restarting" CR));
+        Log.notice(F(LOG_AS "Connected to wifi. Saving settings and restarting" CR));
         WiFi.preinitWiFiOff();
 
         settings.saveParameter(wm);

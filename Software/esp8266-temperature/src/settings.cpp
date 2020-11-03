@@ -42,6 +42,7 @@ NvsSettings::NvsSettings(): opened(false), lastError(0) {
     memset(&_config, 0, sizeof(Config));
 
 	LittleFS.begin();
+    loadConfig();
 }
 
 bool NvsSettings::loadConfig(bool force) {
@@ -81,17 +82,17 @@ void NvsSettings::loadDefaults() {
     _config.fingerprint = 0;
     
     // read the wifi settings
-    _config.wifi_ssid = DEFAULT_WIFI_SSID);
-    _config.wifi_pass = DEFAULT_WIFI_PASS);
+    _config.wifi_ssid = DEFAULT_WIFI_SSID;
+    _config.wifi_pass = DEFAULT_WIFI_PASS;
     _config.wifi_timeout = DEFAULT_WIFI_TIMEOUT;
     
     // read the mqtt settings
-    _config.mqtt_host = DEFAULT_MQTT_HOST);
+    _config.mqtt_host = DEFAULT_MQTT_HOST;
     _config.mqtt_port = DEFAULT_MQTT_PORT;
-    _config.mqtt_login = DEFAULT_MQTT_LOGIN);
-    _config.mqtt_pass = DEFAULT_MQTT_PASS);
-    _config.mqtt_topic = DEFAULT_MQTT_TOPIC);
-    _config.mqtt_id = DEFAULT_MQTT_ID);
+    _config.mqtt_login = DEFAULT_MQTT_LOGIN;
+    _config.mqtt_pass = DEFAULT_MQTT_PASS;
+    _config.mqtt_topic = DEFAULT_MQTT_TOPIC;
+    _config.mqtt_id = DEFAULT_MQTT_ID;
     _config.mqtt_timeout = DEFAULT_MQTT_TIMEOUT;
 
     // read the system settings
@@ -130,22 +131,22 @@ bool NvsSettings::loadConfig(const JsonDocument& doc, bool force) {
     _config.fingerprint = fingerprint;
     
     // read the wifi settings
-    write_validiate(_config.wifi_ssid, doc["wifi-ssid"]);
-    write_validiate(_config.wifi_pass, doc["wifi-pass"]);
-    write_validiate(_config.wifi_timeout, doc["wifi-timeout"]);
+    write_validiate(_config.wifi_ssid, doc["wifi-ssid"].as<String>());
+    write_validiate(_config.wifi_pass, doc["wifi-pass"].as<String>());
+    write_validiate(_config.wifi_timeout, doc["wifi-timeout"].as<uint32_t>());
 
     // read the mqtt settings
-    write_validiate(_config.mqtt_host, doc["mqtt-host"]);
-    write_validiate(_config.mqtt_port, doc["mqtt-port"]);
-    write_validiate(_config.mqtt_login, doc["mqtt-login"]);
-    write_validiate(_config.mqtt_pass, doc["mqtt-pass"]);
-    write_validiate(_config.mqtt_topic, doc["mqtt-topic"]);
-    write_validiate(_config.mqtt_id, doc["mqtt-id"]);
-    write_validiate(_config.mqtt_timeout, doc["mqtt-timeout"]);
+    write_validiate(_config.mqtt_host, doc["mqtt-host"].as<String>());
+    write_validiate(_config.mqtt_port, doc["mqtt-port"].as<uint16_t>());
+    write_validiate(_config.mqtt_login, doc["mqtt-login"].as<String>());
+    write_validiate(_config.mqtt_pass, doc["mqtt-pass"].as<String>());
+    write_validiate(_config.mqtt_topic, doc["mqtt-topic"].as<String>());
+    write_validiate(_config.mqtt_id, doc["mqtt-id"].as<String>());
+    write_validiate(_config.mqtt_timeout, doc["mqtt-timeout"].as<uint32_t>());
 
     // read the system settings
     _config.system_led = doc["system-led"] | false;
-    write_validiate(_config.system_sleep, doc["system-sleep"]);
+    write_validiate(_config.system_sleep, doc["system-sleep"].as<uint32_t>());
     
 #if 0
     const char *ssid = doc["wifi-ssid"];
@@ -265,6 +266,9 @@ void NvsSettings::addParameter(WiFiManager& wm) {
     param = new WiFiManagerParameter("mqtt-topic", "Topic", _config.mqtt_topic.c_str(), 32);
     param->type() = WiFiManagerParameter::StringType;
     wm.addParameter(param);
+    param = new WiFiManagerParameter("mqtt-id", "Chip ID", _config.mqtt_id.c_str(), 32);
+    param->type() = WiFiManagerParameter::StringType;
+    wm.addParameter(param);
     param = new WiFiManagerParameter("mqtt-timeout", "Timeout", String(_config.mqtt_timeout).c_str(), 10);
     param->type() = WiFiManagerParameter::IntegerType;
     wm.addParameter(param);
@@ -284,9 +288,10 @@ void NvsSettings::saveParameter(WiFiManager& wm) {
     StaticJsonDocument<configSize> doc;
 
     WiFiManagerParameter **params = wm.getParameters();
-    size_t count = wm.getParametersCount();
+    int count = wm.getParametersCount();
 
-    doc["fingerprint"] = _config.fingerprint++;
+    _config.fingerprint++;
+    doc["fingerprint"] = _config.fingerprint;
     Log.notice(F(LOG_AS "Saving parameters..." CR));
     Log.verbose(F(LOG_AS "----------" CR));
 
@@ -307,7 +312,7 @@ void NvsSettings::saveParameter(WiFiManager& wm) {
             case WiFiManagerParameter::FloatType:
             break;
         }
-        Log.verbose(F(LOG_AS "Saving parameter %s" CR), p->getID());
+        Log.verbose(F(LOG_AS "Saving parameter %s: %s" CR), p->getID(), p->getValue());
     }
     Log.verbose(F(LOG_AS "----------" CR));
 

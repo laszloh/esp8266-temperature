@@ -113,7 +113,7 @@ void setup() {
     if(rtc.isRtcValid()) {
         if (ESP.getResetInfoPtr()->reason == REASON_EXT_SYS_RST) {
             Log.verbose(F(LOG_AS "Reset count: %d" CR), rtc.getResetCounter());
-            if(rtc.getResetCounter() < 2) {
+            if(rtc.getResetCounter() < 1) {
                 // count to two external resets before enetering captive portal
                 rtc.incResetCounter();
             } else {
@@ -123,8 +123,6 @@ void setup() {
             rtc.WriteRtcMemory();
         }
     }
-
-    nvs.loadConfig();
 
     // load config from EEPROM
     if(nvs.config().fingerprint == 0 || forceConfig) {
@@ -182,7 +180,6 @@ void setup() {
     rtc.setGateway(WiFi.gatewayIP());
     rtc.setMask(WiFi.subnetMask());
     rtc.setDns(WiFi.dnsIP());
-    rtc.setResetCounter(0);
 
     // Start the MQTT party
     client.begin();
@@ -199,5 +196,6 @@ void loop() {
         client.loop();
         delay(10);
     }
+    rtc.setResetCounter(0);
     enter_sleep();
 }
