@@ -36,6 +36,7 @@
 #include "settings.h"
 #include "wifi.h"
 #include "main.h"
+#include "ota.h"
 
 #define LOG_AS "[MQTT] "
 
@@ -70,6 +71,12 @@ void MqttClient::begin() {
     mqtt.setSocketTimeout(1);
 }
 
+static void esp_reset() {
+    Log.notice(F(LOG_AS "Rebooint..." CR));
+    Serial.flush();
+    ESP.reset();
+}
+
 void MqttClient::callback(char* topic, uint8_t* payload, uint16_t length) {
     NvsSettings& settings = NvsSettings::instance();
     StaticJsonDocument<200> jsonDoc;
@@ -77,12 +84,17 @@ void MqttClient::callback(char* topic, uint8_t* payload, uint16_t length) {
     Log.verbose(F(LOG_AS "Got a new setup topic" CR));
 
     deserializeJson(jsonDoc, payload, length);
+    
+    JsonObject upgrade = jsonDoc["upgrade"];
+    if(upgrade) {
+        if(Ota::instance().upgrade(upgrade["major"]|0, upgrade["minor"]|0, upgrade["path"], upgrade["forced"]|false))
+            esp_reset();
+    }
+    
     if(settings.loadConfig(jsonDoc)) {
-        Log.notice(F(LOG_AS "New settings received. Saving and rebooting..." CR));
+        Log.notice(F(LOG_AS "New settings received. Saving" CR));
         settings.saveConfig();
-        
-        Serial.flush();
-        ESP.reset();
+        esp_reset();
     }
 }
 
