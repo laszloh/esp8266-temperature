@@ -31,4 +31,50 @@
 
 bool setup_ap();
 
+class Parameter : public WiFiManagerParameter {
+  public:
+    /** 
+        Create custom parameters that can be added to the WiFiManager setup web page
+        @id is used for HTTP queries and must not contain spaces nor other special characters
+    */
+    Parameter() : WiFiManagerParameter() { }
+    Parameter(const char *custom) : WiFiManagerParameter(custom) { }
+    Parameter(const char *id, const char *label) : WiFiManagerParameter(id, label) { }
+    Parameter(const char *id, const char *label, const char *defaultValue, int length) : 
+        WiFiManagerParameter(id, label, defaultValue, length) { }
+    Parameter(const char *id, const char *label, const char *defaultValue, int length, const char *custom) : 
+        WiFiManagerParameter(id, label, defaultValue, length, custom) { }
+    Parameter(const char *id, const char *label, const char *defaultValue, int length, const char *custom, int labelPlacement) : 
+        WiFiManagerParameter(id, label, defaultValue, length, custom, labelPlacement) { }
 
+    enum ParamType {
+        StringType,
+        IntegerType,
+        FloatType
+    };
+
+    const char *getID();
+    const char *getValue();
+    const char *getLabel();
+    const char *getPlaceholder(); // @deprecated, use getLabel
+    int         getValueLength();
+    int         getLabelPlacement();
+    const char *getCustomHTML();
+    void        setValue(const char *defaultValue, int length);
+    ParamType&  type() { return _type; }
+
+  protected:
+    void init(const char *id, const char *label, const char *defaultValue, int length, const char *custom, int labelPlacement);
+
+  private:
+    Parameter& operator=(const Parameter&);
+    const char *_id;
+    const char *_label;
+    char       *_value;
+    int         _length;
+    int         _labelPlacement;
+    const char *_customHTML;
+    ParamType   _type;
+    
+    friend class WiFiManager;
+};

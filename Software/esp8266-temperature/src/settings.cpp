@@ -299,17 +299,17 @@ void NvsSettings::saveParameter(WiFiManager& wm) {
     doc["wifi-pass"] = wm.getWiFiPass();
 
     for(int i=0;i<count;i++) {
-        WiFiManagerParameter *p = params[i];
+        Parameter *p = static_cast<Parameter*>(params[i]);
         switch(p->type()) {
-            case WiFiManagerParameter::IntegerType:
+            case Parameter::IntegerType:
                 doc[p->getID()] = atoi(p->getValue());
                 break;
 
-            case WiFiManagerParameter::StringType:
+            case Parameter::StringType:
                 doc[p->getID()] = p->getValue();
                 break;
 
-            case WiFiManagerParameter::FloatType:
+            case Parameter::FloatType:
             break;
         }
         Log.verbose(F(LOG_AS "Saving parameter %s: %s" CR), p->getID(), p->getValue());
